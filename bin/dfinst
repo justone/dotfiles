@@ -42,10 +42,10 @@ foreach my $direntry ( readdir($dirh) ) {
 
     if ( !-l $direntry ) {
         if ( -e $direntry ) {
-            INFO("  Backing up...");
+            INFO("  Backing up $direntry.");
             `mv $direntry $backup_dir/$direntry`;
         }
-        INFO("  Symlinking $direntry");
+        INFO("  Symlinking $direntry.");
         symlink( "$repo_dir/$direntry", $direntry );
     }
 }
