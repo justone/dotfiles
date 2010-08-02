@@ -3,5 +3,58 @@
 use strict;
 use warnings;
 use Data::Dumper;
+use FindBin qw($Bin);
+use Getopt::Long;
 
-print "Installing dotfiles...\n";
+my %opts;
+GetOptions( \%opts, 'verbose', 'quiet' );
+
+INFO("Installing dotfiles...");
+
+DEBUG("Running in [$Bin] and installing in [$ENV{HOME}]");
+
+my $backup_dir = $ENV{HOME} . '/.backup';
+my $repo_dir   = $Bin;
+$repo_dir =~ s/$ENV{HOME}\///;
+$repo_dir =~ s/\/bin//;
+
+DEBUG("Backup dir: $backup_dir");
+DEBUG("Repo dir: $repo_dir");
+
+chdir( $ENV{HOME} );
+
+if ( !-e $backup_dir ) {
+    DEBUG("Creating $backup_dir");
+    mkdir($backup_dir);
+}
+
+my $dirh;
+opendir $dirh, $repo_dir;
+foreach my $direntry ( readdir($dirh) ) {
+
+    # skip current and parent
+    next if $direntry eq '.' or $direntry eq '..';
+
+    # skip VCS stuff
+    next if $direntry eq '.gitignore' or $direntry eq '.git';
+
+    DEBUG(" Working on $direntry");
+
+    if ( !-l $direntry ) {
+        if ( -e $direntry ) {
+            INFO("  Backing up...");
+            `mv $direntry $backup_dir/$direntry`;
+        }
+        INFO("  Symlinking $direntry");
+        symlink( "$repo_dir/$direntry", $direntry );
+    }
+}
+
+# a couple of log4perl-alikes
+sub INFO {
+    printf "INFO: %s\n", shift if !$opts{quiet};
+}
+
+sub DEBUG {
+    printf "DEBUG: %s\n", shift if $opts{verbose};
+}
