@@ -50,6 +50,15 @@ foreach my $direntry ( readdir($dirh) ) {
     }
 }
 
+# check if the loader is in
+system("grep bashrc.nate .bashrc 2>&1 > /dev/null");
+my $rc = $? >> 8;
+if ($rc) {
+    INFO("Appending loader to .bashrc");
+    system('echo -e "\n. $HOME/.bashrc.nate\n" >> .bashrc')
+        if !$opts{'dry-run'};
+}
+
 # a couple of log4perl-alikes
 sub INFO {
     printf "INFO: %s\n", shift if !$opts{quiet};
