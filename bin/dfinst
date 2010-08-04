@@ -23,6 +23,20 @@ DEBUG("Repo dir: $repo_dir");
 
 chdir( $ENV{HOME} );
 
+# build up skip list
+my $skip_files = {};
+if ( -e "$repo_dir/skip" ) {
+    open( my $skip_fh, '<', "$repo_dir/skip" );
+    foreach my $line (<$skip_fh>) {
+        chomp($line);
+        $skip_files->{$line} = 1;
+    }
+    close($skip_fh);
+    $skip_files->{skip} = 1;
+
+    DEBUG("Skipped file: $_") for keys %$skip_files;
+}
+
 if ( !-e $backup_dir ) {
     DEBUG("Creating $backup_dir");
     mkdir($backup_dir) if !$opts{'dry-run'};
@@ -37,6 +51,9 @@ foreach my $direntry ( readdir($dirh) ) {
 
     # skip VCS stuff
     next if $direntry eq '.gitignore' or $direntry eq '.git';
+
+    # skip any other files
+    next if $skip_files->{$direntry};
 
     DEBUG(" Working on $direntry");
 
