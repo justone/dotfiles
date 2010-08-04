@@ -43,7 +43,7 @@ foreach my $direntry ( readdir($dirh) ) {
     if ( !-l $direntry ) {
         if ( -e $direntry ) {
             INFO("  Backing up $direntry.");
-            `mv $direntry $backup_dir/$direntry` if !$opts{'dry-run'};
+            system("mv $direntry $backup_dir/$direntry") if !$opts{'dry-run'};
         }
         INFO("  Symlinking $direntry.");
         symlink( "$repo_dir/$direntry", $direntry ) if !$opts{'dry-run'};
