@@ -7,7 +7,7 @@ use FindBin qw($Bin);
 use Getopt::Long;
 
 my %opts;
-GetOptions( \%opts, 'verbose', 'quiet' );
+GetOptions( \%opts, 'verbose', 'quiet', 'dry-run' );
 
 INFO("Installing dotfiles...");
 
@@ -25,7 +25,7 @@ chdir( $ENV{HOME} );
 
 if ( !-e $backup_dir ) {
     DEBUG("Creating $backup_dir");
-    mkdir($backup_dir);
+    mkdir($backup_dir) if !$opts{'dry-run'};
 }
 
 my $dirh;
@@ -43,10 +43,10 @@ foreach my $direntry ( readdir($dirh) ) {
     if ( !-l $direntry ) {
         if ( -e $direntry ) {
             INFO("  Backing up $direntry.");
-            `mv $direntry $backup_dir/$direntry`;
+            `mv $direntry $backup_dir/$direntry` if !$opts{'dry-run'};
         }
         INFO("  Symlinking $direntry.");
-        symlink( "$repo_dir/$direntry", $direntry );
+        symlink( "$repo_dir/$direntry", $direntry ) if !$opts{'dry-run'};
     }
 }
 
