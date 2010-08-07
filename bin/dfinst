@@ -9,7 +9,7 @@ use Getopt::Long;
 my %opts;
 GetOptions( \%opts, 'verbose', 'quiet', 'dry-run' );
 
-INFO("Installing dotfiles...");
+INFO( "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
 
 DEBUG("Running in [$Bin] and installing in [$ENV{HOME}]");
 
@@ -104,9 +104,13 @@ sub configure_bash_loader {
     my $bashrc_contents;
     {
         local $/ = undef;
-        open( my $bashrc_in, '<', ".bashrc" );
-        $bashrc_contents = <$bashrc_in>;
-        close $bashrc_in;
+        if ( open( my $bashrc_in, '<', ".bashrc" ) ) {
+            $bashrc_contents = <$bashrc_in>;
+            close $bashrc_in;
+        }
+        else {
+            $bashrc_contents = '';
+        }
     }
 
     # check if the loader is in
@@ -115,7 +119,9 @@ sub configure_bash_loader {
         $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
     }
 
-    open( my $bashrc_out, '>', ".bashrc" );
-    print $bashrc_out $bashrc_contents;
-    close $bashrc_out;
+    if ( !$opts{'dry-run'} ) {
+        open( my $bashrc_out, '>', ".bashrc" );
+        print $bashrc_out $bashrc_contents;
+        close $bashrc_out;
+    }
 }
