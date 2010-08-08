@@ -1,0 +1,6 @@
+# include what you want
+
+# add this to the .bashrc: . $HOME/.bashrc.load
+
+####
+# put any bash customizations in here

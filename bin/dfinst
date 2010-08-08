@@ -67,14 +67,23 @@ foreach my $direntry ( readdir($dirh) ) {
     }
 }
 
-# check if the loader is in
-system("grep bashrc.nate .bashrc 2>&1 > /dev/null");
-my $rc = $? >> 8;
-if ($rc) {
-    INFO("Appending loader to .bashrc");
-    system('echo -e "\n. $HOME/.bashrc.nate\n" >> .bashrc')
-        if !$opts{'dry-run'};
+my $bashrc_contents;
+{
+    local $/ = undef;
+    open( my $bashrc_in, '<', ".bashrc" );
+    $bashrc_contents = <$bashrc_in>;
+    close $bashrc_in;
 }
+
+# check if the loader is in
+if ( $bashrc_contents !~ /\.bashrc\.load/ ) {
+    INFO("Appending loader to .bashrc");
+    $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
+}
+
+open( my $bashrc_out, '>', ".bashrc" );
+print $bashrc_out $bashrc_contents;
+close $bashrc_out;
 
 # a couple of log4perl-alikes
 sub INFO {
