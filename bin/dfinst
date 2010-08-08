@@ -13,77 +13,27 @@ INFO("Installing dotfiles...");
 
 DEBUG("Running in [$Bin] and installing in [$ENV{HOME}]");
 
-my $backup_dir = $ENV{HOME} . '/.backup';
-my $repo_dir   = $Bin;
+my $repo_dir = $Bin;
 $repo_dir =~ s/$ENV{HOME}\///;
 $repo_dir =~ s/\/bin//;
 
-DEBUG("Backup dir: $backup_dir");
 DEBUG("Repo dir: $repo_dir");
 
-chdir( $ENV{HOME} );
+# isntall main files
+install_files( $ENV{HOME} . '/' . $repo_dir,
+    $ENV{HOME}, [qw(.git .gitignore .ssh)] );
 
-# build up skip list
-my $skip_files = {};
-if ( -e "$repo_dir/skip" ) {
-    open( my $skip_fh, '<', "$repo_dir/skip" );
-    foreach my $line (<$skip_fh>) {
-        chomp($line);
-        $skip_files->{$line} = 1;
-    }
-    close($skip_fh);
-    $skip_files->{skip} = 1;
+# install files in the .ssh directory
+install_files(
+    $ENV{HOME} . '/' . $repo_dir . '/.ssh',
+    $ENV{HOME} . '/.ssh',
+    ['.gitignore']
+);
 
-    DEBUG("Skipped file: $_") for keys %$skip_files;
-}
+# link in the bash loader
+configure_bash_loader();
 
-if ( !-e $backup_dir ) {
-    DEBUG("Creating $backup_dir");
-    mkdir($backup_dir) if !$opts{'dry-run'};
-}
-
-my $dirh;
-opendir $dirh, $repo_dir;
-foreach my $direntry ( readdir($dirh) ) {
-
-    # skip current and parent
-    next if $direntry eq '.' or $direntry eq '..';
-
-    # skip VCS stuff
-    next if $direntry eq '.gitignore' or $direntry eq '.git';
-
-    # skip any other files
-    next if $skip_files->{$direntry};
-
-    DEBUG(" Working on $direntry");
-
-    if ( !-l $direntry ) {
-        if ( -e $direntry ) {
-            INFO("  Backing up $direntry.");
-            system("mv $direntry $backup_dir/$direntry") if !$opts{'dry-run'};
-        }
-        INFO("  Symlinking $direntry.");
-        symlink( "$repo_dir/$direntry", $direntry ) if !$opts{'dry-run'};
-    }
-}
-
-my $bashrc_contents;
-{
-    local $/ = undef;
-    open( my $bashrc_in, '<', ".bashrc" );
-    $bashrc_contents = <$bashrc_in>;
-    close $bashrc_in;
-}
-
-# check if the loader is in
-if ( $bashrc_contents !~ /\.bashrc\.load/ ) {
-    INFO("Appending loader to .bashrc");
-    $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
-}
-
-open( my $bashrc_out, '>', ".bashrc" );
-print $bashrc_out $bashrc_contents;
-close $bashrc_out;
+exit;
 
 # a couple of log4perl-alikes
 sub INFO {
@@ -92,4 +42,80 @@ sub INFO {
 
 sub DEBUG {
     printf "DEBUG: %s\n", shift if $opts{verbose};
+}
+
+# function to install files
+sub install_files {
+    my ( $from_dir, $to_dir, $initial_skips ) = @_;
+    $initial_skips //= [];
+
+    my $backup_dir = $to_dir . '/.backup';
+    DEBUG("Backup dir: $backup_dir");
+
+    chdir($to_dir);
+
+    # build up skip list
+    my $skip_files = { map { $_ => 1 } @$initial_skips };
+    if ( -e "$from_dir/skip" ) {
+        open( my $skip_fh, '<', "$from_dir/skip" );
+        foreach my $line (<$skip_fh>) {
+            chomp($line);
+            $skip_files->{$line} = 1;
+        }
+        close($skip_fh);
+        $skip_files->{skip} = 1;
+
+        DEBUG("Skipped file: $_") for keys %$skip_files;
+    }
+
+    if ( !-e $backup_dir ) {
+        DEBUG("Creating $backup_dir");
+        mkdir($backup_dir) if !$opts{'dry-run'};
+    }
+
+    my $dirh;
+    opendir $dirh, $from_dir;
+    foreach my $direntry ( readdir($dirh) ) {
+
+        # skip current and parent
+        next if $direntry eq '.' or $direntry eq '..';
+
+        # skip any other files
+        next if $skip_files->{$direntry};
+
+        DEBUG(" Working on $direntry");
+
+        if ( !-l $direntry ) {
+            if ( -e $direntry ) {
+                INFO("  Backing up $direntry.");
+                system("mv $direntry $backup_dir/$direntry")
+                    if !$opts{'dry-run'};
+            }
+            INFO("  Symlinking $direntry.");
+            symlink( "$from_dir/$direntry", "$direntry" )
+                if !$opts{'dry-run'};
+        }
+    }
+}
+
+sub configure_bash_loader {
+    chdir( $ENV{HOME} );
+
+    my $bashrc_contents;
+    {
+        local $/ = undef;
+        open( my $bashrc_in, '<', ".bashrc" );
+        $bashrc_contents = <$bashrc_in>;
+        close $bashrc_in;
+    }
+
+    # check if the loader is in
+    if ( $bashrc_contents !~ /\.bashrc\.load/ ) {
+        INFO("Appending loader to .bashrc");
+        $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
+    }
+
+    open( my $bashrc_out, '>', ".bashrc" );
+    print $bashrc_out $bashrc_contents;
+    close $bashrc_out;
 }
