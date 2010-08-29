@@ -47,7 +47,7 @@ sub DEBUG {
 # function to install files
 sub install_files {
     my ( $from_dir, $to_dir, $initial_skips ) = @_;
-    $initial_skips //= [];
+    $initial_skips ||= [];
 
     my $backup_dir = $to_dir . '/.backup';
     DEBUG("Backup dir: $backup_dir");
