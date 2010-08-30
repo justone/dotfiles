@@ -24,7 +24,12 @@ DEBUG("Repo dir: $repo_dir");
 
 my %opts;
 if ( $command eq 'install' ) {
-    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run' );
+    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
+
+    if ($opts{'help'}) {
+        show_usage();
+        exit;
+    }
 
     INFO(
         "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
@@ -146,3 +151,62 @@ sub configure_bash_loader {
         close $bashrc_out;
     }
 }
+
+sub show_usage {
+    print <<END;
+Usage:
+    dfm install [--verbose|--quiet] [--dry-run]
+    dfm [git subcommand] [git options]
+
+For full documentation, run "perldoc ~/$repo_dir/bin/dfm".
+END
+}
+
+__END__
+
+=head1 NAME
+
+    dfm - A script to manage a dotfiles repository
+
+=head1 SYNOPSIS
+
+    dfm install [--verbose|--quiet] [--dry-run]
+
+    dfm [git subcommand] [git options]
+
+=head1 DESCRIPTION
+
+    Manages installing files from and operating on a repository that contains
+    dotfiles.
+
+=head1 COMMANDS
+
+=over
+
+=item dfm install
+
+This installs everything in the repository into the current user's home
+directory by making symlinks.  To skip any files, add their names to a file
+named 'skip' in the base of the repository.  This is the default command.
+
+=item dfm [git subcommand]
+
+This runs any git command as if it was inside the dotfiles repository.  For
+instance, this makes it easy to commit changes that are made by running 'dfm
+commit'.
+
+=back
+
+=head1 AUTHOR
+
+Nate Jones <nate@endot.org>
+
+=head1 COPYRIGHT
+
+Copyright (c) 2010 L</AUTHOR> as listed above.
+
+=head1 LICENSE
+
+This program is free software distributed under the Artistic License 2.0.
+
+=cut
