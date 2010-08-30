@@ -21,7 +21,7 @@ DEBUG("Repo dir: $repo_dir");
 
 # isntall main files
 install_files( $ENV{HOME} . '/' . $repo_dir,
-    $ENV{HOME}, [qw(.git .gitignore .ssh)] );
+    $ENV{HOME}, [qw(.git .gitignore .ssh README.md)] );
 
 # install files in the .ssh directory
 install_files(
