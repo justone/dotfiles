@@ -6,12 +6,15 @@ use Data::Dumper;
 use FindBin qw($Bin);
 use Getopt::Long;
 
-my %opts;
-GetOptions( \%opts, 'verbose', 'quiet', 'dry-run' );
+my $command;
+foreach my $arg (@ARGV) {
+    next if $arg =~ /^-/;
+    $command = $arg;
+}
 
-INFO( "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
-
-DEBUG("Running in [$Bin] and installing in [$ENV{HOME}]");
+if ( !$command ) {
+    $command = 'install';
+}
 
 my $repo_dir = $Bin;
 $repo_dir =~ s/$ENV{HOME}\///;
@@ -19,19 +22,37 @@ $repo_dir =~ s/\/bin//;
 
 DEBUG("Repo dir: $repo_dir");
 
-# isntall main files
-install_files( $ENV{HOME} . '/' . $repo_dir,
-    $ENV{HOME}, [qw(.git .gitignore .ssh README.md)] );
+my %opts;
+if ( $command eq 'install' ) {
+    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run' );
 
-# install files in the .ssh directory
-install_files(
-    $ENV{HOME} . '/' . $repo_dir . '/.ssh',
-    $ENV{HOME} . '/.ssh',
-    ['.gitignore']
-);
+    INFO(
+        "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
 
-# link in the bash loader
-configure_bash_loader();
+    DEBUG("Running in [$Bin] and installing in [$ENV{HOME}]");
+
+    # isntall main files
+    install_files( $ENV{HOME} . '/' . $repo_dir,
+        $ENV{HOME}, [qw(.git .gitignore .ssh README.md)] );
+
+    # install files in the .ssh directory
+    install_files(
+        $ENV{HOME} . '/' . $repo_dir . '/.ssh',
+        $ENV{HOME} . '/.ssh',
+        ['.gitignore']
+    );
+
+    # link in the bash loader
+    configure_bash_loader();
+}
+else {
+
+    # assume it's a git command and call accordingly
+    chdir( $ENV{HOME} );
+    exec( 'git', '--git-dir', "$repo_dir/.git", '--work-tree', "$repo_dir",
+        @ARGV );
+    exit;
+}
 
 exit;
 
