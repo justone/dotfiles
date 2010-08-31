@@ -53,9 +53,8 @@ if ( $command eq 'install' ) {
 else {
 
     # assume it's a git command and call accordingly
-    chdir( $ENV{HOME} );
-    exec( 'git', '--git-dir', "$repo_dir/.git", '--work-tree', "$repo_dir",
-        @ARGV );
+    chdir( $ENV{HOME} . '/' . $repo_dir );
+    exec( 'git', @ARGV );
     exit;
 }
 
