@@ -26,7 +26,7 @@ my %opts;
 if ( $command eq 'install' ) {
     GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
 
-    if ($opts{'help'}) {
+    if ( $opts{'help'} ) {
         show_usage();
         exit;
     }
@@ -49,6 +49,31 @@ if ( $command eq 'install' ) {
 
     # link in the bash loader
     configure_bash_loader();
+}
+elsif ( $command eq 'updates' ) {
+    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'no-fetch', 'help' );
+
+    if ( $opts{'help'} ) {
+        show_usage();
+        exit;
+    }
+
+    chdir( $ENV{HOME} . '/' . $repo_dir );
+
+    if ( !$opts{'no-fetch'} ) {
+        DEBUG('fetching changes');
+        system("git fetch") if !$opts{'dry-run'};
+    }
+
+    my $current_branch = `git symbolic-ref HEAD`;
+    chomp $current_branch;
+
+    # convert 'refs/heads/personal' to 'personal'
+    $current_branch =~ s/^.+\///g;
+
+    DEBUG("current branch: $current_branch");
+
+    system("git log --pretty='format:%h: %s' $current_branch..origin/$current_branch");
 }
 else {
 
@@ -155,6 +180,7 @@ sub show_usage {
     print <<END;
 Usage:
     dfm install [--verbose|--quiet] [--dry-run]
+    dfm updates [--verbose|--quiet] [--dry-run] [--no-fetch]
     dfm [git subcommand] [git options]
 
 For full documentation, run "perldoc ~/$repo_dir/bin/dfm".
@@ -171,12 +197,22 @@ __END__
 
     dfm install [--verbose|--quiet] [--dry-run]
 
+    dfm updates [--verbose|--quiet] [--dry-run] [--no-fetch]
+
     dfm [git subcommand] [git options]
 
 =head1 DESCRIPTION
 
     Manages installing files from and operating on a repository that contains
     dotfiles.
+
+=head1 COMMON OPTIONS
+
+All the subcommands implemented by dfm have the following options:
+
+  --verbose     Show extra information about what dfm is doing
+  --quiet       Show as little info as possible.
+  --dry-run     Don't do anything.
 
 =head1 COMMANDS
 
@@ -188,7 +224,13 @@ This installs everything in the repository into the current user's home
 directory by making symlinks.  To skip any files, add their names to a file
 named 'skip' in the base of the repository.  This is the default command.
 
-=item dfm [git subcommand]
+=item dfm updates [--no-fetch]
+
+This fetches any changes from the origin remote and then shows a shortlog of
+what updates would come in if merged into the current branch.  Use '--no-fetch'
+to skip the fetch and just show what's new.
+
+=item dfm [git subcommand] [git options]
 
 This runs any git command as if it was inside the dotfiles repository.  For
 instance, this makes it easy to commit changes that are made by running 'dfm
