@@ -65,15 +65,52 @@ elsif ( $command eq 'updates' ) {
         system("git fetch") if !$opts{'dry-run'};
     }
 
-    my $current_branch = `git symbolic-ref HEAD`;
-    chomp $current_branch;
+    my $current_branch = get_current_branch();
 
-    # convert 'refs/heads/personal' to 'personal'
-    $current_branch =~ s/^.+\///g;
+    print get_changes("$current_branch..origin/$current_branch"), "\n";
+}
+elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
+    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help', 'merge',
+        'rebase' );
 
-    DEBUG("current branch: $current_branch");
+    if ( $opts{'help'} ) {
+        show_usage();
+        exit;
+    }
 
-    system("git log --pretty='format:%h: %s' $current_branch..origin/$current_branch");
+    chdir( $ENV{HOME} . '/' . $repo_dir );
+
+    my $current_branch = get_current_branch();
+
+    my $sync_command = $opts{'rebase'} ? 'rebase' : 'merge';
+
+    if ( get_changes("$current_branch..origin/$current_branch") ) {
+
+        # check for local commits
+        if ( my $local_changes
+            = get_changes("origin/$current_branch..$current_branch") )
+        {
+
+            # if a decision wasn't made about how to deal with local commits
+            if ( !$opts{'merge'} && !$opts{'rebase'} ) {
+                WARN(
+                    "local changes detected, run with either --merge or --rebase"
+                );
+                print $local_changes, "\n";
+                exit;
+            }
+        }
+
+        INFO("using $sync_command to bring in changes");
+        system("git $sync_command origin/$current_branch")
+            if !$opts{'dry-run'};
+
+        INFO("re-installing dotfiles");
+        system("dfm install") if !$opts{'dry-run'};
+    }
+    else {
+        INFO("no changes to merge");
+    }
 }
 else {
 
@@ -85,7 +122,29 @@ else {
 
 exit;
 
-# a couple of log4perl-alikes
+sub get_changes {
+    my $what = shift;
+
+    return `git log --pretty='format:%h: %s' $what`;
+}
+
+sub get_current_branch {
+    my $current_branch = `git symbolic-ref HEAD`;
+    chomp $current_branch;
+
+    # convert 'refs/heads/personal' to 'personal'
+    $current_branch =~ s/^.+\///g;
+
+    DEBUG("current branch: $current_branch");
+
+    return $current_branch;
+}
+
+# a few log4perl-alikes
+sub WARN {
+    printf "WARN: %s\n", shift;
+}
+
 sub INFO {
     printf "INFO: %s\n", shift if !$opts{quiet};
 }
@@ -181,6 +240,7 @@ sub show_usage {
 Usage:
     dfm install [--verbose|--quiet] [--dry-run]
     dfm updates [--verbose|--quiet] [--dry-run] [--no-fetch]
+    dfm mergeandinstall [--verbose|--quiet] [--dry-run] [--merge|--rebase]
     dfm [git subcommand] [git options]
 
 For full documentation, run "perldoc ~/$repo_dir/bin/dfm".
@@ -198,6 +258,10 @@ __END__
     dfm install [--verbose|--quiet] [--dry-run]
 
     dfm updates [--verbose|--quiet] [--dry-run] [--no-fetch]
+
+    dfm mergeandinstall [--verbose|--quiet] [--dry-run] [--merge|--rebase]
+     - or -
+    dfm mi [--verbose|--quiet] [--dry-run] [--merge|--rebase]
 
     dfm [git subcommand] [git options]
 
@@ -229,6 +293,11 @@ named 'skip' in the base of the repository.  This is the default command.
 This fetches any changes from the origin remote and then shows a shortlog of
 what updates would come in if merged into the current branch.  Use '--no-fetch'
 to skip the fetch and just show what's new.
+
+=item dfm mergeandinstall [--merge|--rebase]
+
+This merges or rebases the upstream changes in and re-installs dotfiiles.  A
+convenient alias is 'mi'.
 
 =item dfm [git subcommand] [git options]
 
