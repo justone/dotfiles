@@ -189,6 +189,9 @@ sub install_files {
         # skip current and parent
         next if $direntry eq '.' or $direntry eq '..';
 
+        # skip vim swap files
+        next if $direntry =~ /.*\.sw.$/;
+
         # skip any other files
         next if $skip_files->{$direntry};
 
