@@ -5,6 +5,8 @@ use warnings;
 use Data::Dumper;
 use FindBin qw($Bin);
 use Getopt::Long;
+use Cwd qw(realpath);
+use File::Spec;
 
 my $command;
 foreach my $arg (@ARGV) {
@@ -16,8 +18,10 @@ if ( !$command ) {
     $command = 'install';
 }
 
+my $home = realpath( $ENV{HOME} );
+
 my $repo_dir = $Bin;
-$repo_dir =~ s/$ENV{HOME}\///;
+$repo_dir =~ s/$home\///;
 $repo_dir =~ s/\/bin//;
 
 DEBUG("Repo dir: $repo_dir");
@@ -34,16 +38,16 @@ if ( $command eq 'install' ) {
     INFO(
         "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
 
-    DEBUG("Running in [$Bin] and installing in [$ENV{HOME}]");
+    DEBUG("Running in [$Bin] and installing in [$home]");
 
     # isntall main files
-    install_files( $ENV{HOME} . '/' . $repo_dir,
-        $ENV{HOME}, [qw(.git .gitignore .ssh README.md)] );
+    install_files( $home . '/' . $repo_dir,
+        $home, [qw(.git .gitignore .ssh README.md)] );
 
     # install files in the .ssh directory
     install_files(
-        $ENV{HOME} . '/' . $repo_dir . '/.ssh',
-        $ENV{HOME} . '/.ssh',
+        $home . '/' . $repo_dir . '/.ssh',
+        $home . '/.ssh',
         ['.gitignore']
     );
 
@@ -58,7 +62,7 @@ elsif ( $command eq 'updates' ) {
         exit;
     }
 
-    chdir( $ENV{HOME} . '/' . $repo_dir );
+    chdir( $home . '/' . $repo_dir );
 
     if ( !$opts{'no-fetch'} ) {
         DEBUG('fetching changes');
@@ -78,7 +82,7 @@ elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
         exit;
     }
 
-    chdir( $ENV{HOME} . '/' . $repo_dir );
+    chdir( $home . '/' . $repo_dir );
 
     my $current_branch = get_current_branch();
 
@@ -115,7 +119,7 @@ elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
 else {
 
     # assume it's a git command and call accordingly
-    chdir( $ENV{HOME} . '/' . $repo_dir );
+    chdir( $home . '/' . $repo_dir );
     exec( 'git', @ARGV );
     exit;
 }
@@ -158,6 +162,22 @@ sub install_files {
     my ( $from_dir, $to_dir, $initial_skips ) = @_;
     $initial_skips ||= [];
 
+    DEBUG("Installing from $from_dir into $to_dir");
+
+    my $symlink_base;
+
+    # if the paths have no first element in common
+    if ( ( File::Spec->splitdir($from_dir) )[1] ne
+        ( File::Spec->splitdir($to_dir) )[1] )
+    {
+        $symlink_base = $from_dir;    # use absolute path
+    }
+    else {
+
+        # otherwise, calculate the relative path between the two directories
+        $symlink_base = File::Spec->abs2rel( $from_dir, $to_dir );
+    }
+
     my $backup_dir = $to_dir . '/.backup';
     DEBUG("Backup dir: $backup_dir");
 
@@ -189,9 +209,6 @@ sub install_files {
         # skip current and parent
         next if $direntry eq '.' or $direntry eq '..';
 
-        # skip vim swap files
-        next if $direntry =~ /.*\.sw.$/;
-
         # skip any other files
         next if $skip_files->{$direntry};
 
@@ -203,15 +220,15 @@ sub install_files {
                 system("mv $direntry $backup_dir/$direntry")
                     if !$opts{'dry-run'};
             }
-            INFO("  Symlinking $direntry.");
-            symlink( "$from_dir/$direntry", "$direntry" )
+            INFO("  Symlinking $direntry ($symlink_base/$direntry).");
+            symlink( "$symlink_base/$direntry", "$direntry" )
                 if !$opts{'dry-run'};
         }
     }
 }
 
 sub configure_bash_loader {
-    chdir( $ENV{HOME} );
+    chdir($home);
 
     my $bashrc_contents;
     {
@@ -226,7 +243,12 @@ sub configure_bash_loader {
     }
 
     # check if the loader is in
-    if ( $bashrc_contents !~ /\.bashrc\.load/ ) {
+    # previous incarnations used .bashrc.nate
+    if ( $bashrc_contents =~ /\.bashrc\.nate/ ) {
+        INFO("Correcting loader in .bashrc");
+        $bashrc_contents =~ s/\.bashrc\.nate/\.bashrc\.load/;
+    }
+    elsif ( $bashrc_contents !~ /\.bashrc\.load/ ) {
         INFO("Appending loader to .bashrc");
         $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
     }
