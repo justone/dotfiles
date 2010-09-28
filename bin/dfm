@@ -209,6 +209,9 @@ sub install_files {
         # skip current and parent
         next if $direntry eq '.' or $direntry eq '..';
 
+        # skip vim swap files
+        next if $direntry =~ /.*\.sw.$/;
+
         # skip any other files
         next if $skip_files->{$direntry};
 
@@ -243,12 +246,7 @@ sub configure_bash_loader {
     }
 
     # check if the loader is in
-    # previous incarnations used .bashrc.nate
-    if ( $bashrc_contents =~ /\.bashrc\.nate/ ) {
-        INFO("Correcting loader in .bashrc");
-        $bashrc_contents =~ s/\.bashrc\.nate/\.bashrc\.load/;
-    }
-    elsif ( $bashrc_contents !~ /\.bashrc\.load/ ) {
+    if ( $bashrc_contents !~ /\.bashrc\.load/ ) {
         INFO("Appending loader to .bashrc");
         $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
     }
