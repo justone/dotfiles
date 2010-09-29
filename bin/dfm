@@ -42,7 +42,7 @@ if ( $command eq 'install' ) {
 
     # isntall main files
     install_files( $home . '/' . $repo_dir,
-        $home, [qw(.git .gitignore .ssh README.md)] );
+        $home, [qw(.git .gitignore .ssh README.md t)] );
 
     # install files in the .ssh directory
     install_files(
