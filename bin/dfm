@@ -236,8 +236,12 @@ sub install_files {
     }
 
     foreach my $recurse (@$recurse_files) {
-        if ( -d $recurse ) {
+        if ( -d "$from_dir/$recurse" ) {
             DEBUG("recursing into $recurse");
+            if ( !-d $recurse ) {
+                DEBUG("making directory $recurse");
+                mkdir($recurse);
+            }
             install_files( "$from_dir/$recurse", "$to_dir/$recurse" );
         }
         else {
