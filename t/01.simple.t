@@ -9,7 +9,7 @@ require "$Bin/helper.pl";
 my $file_slurp_available = load_mod("File::Slurp qw(read_file)");
 
 my @tests = (
-    {   count => 11,
+    {   count => 12,
         code  => sub {
             my $t = 'simple';
 
@@ -19,8 +19,9 @@ my @tests = (
             ok( -d "$home/.backup", "$t - main backup dir exists" );
             ok( -l "$home/bin",     "$t - bin is a symlink" );
             ok( !-e "$home/.git",   "$t - .git does not exist in \$home" );
-            ok( !-e "$home/.gitignore", "$t - .gitignore does not exist" );
-            ok( !-l "$home/.ssh",       "$t - .ssh is not a symlink" );
+            ok( !-e "$home/.gitignore",  "$t - .gitignore does not exist" );
+            ok( !-e "$home/.dfminstall", "$t - .dfminstall does not exist" );
+            ok( !-l "$home/.ssh",        "$t - .ssh is not a symlink" );
             ok( !-e "$home/.ssh/.gitignore",
                 "$t - .ssh/.gitignore does not exist" );
             is( readlink("$home/bin"), ".dotfiles/bin",

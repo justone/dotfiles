@@ -18,6 +18,7 @@ sub minimum_repo {
 
     # create repo and copy in dfm
     `mkdir -p $repo/bin`;
+    `echo ".ssh\nREADME.md\nt" > $repo/.dfminstall`;
     `mkdir -p $repo/t`;
     `mkdir -p $repo/.git`;
     `echo "ignore" > $repo/.gitignore`;

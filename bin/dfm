@@ -40,16 +40,8 @@ if ( $command eq 'install' ) {
 
     DEBUG("Running in [$Bin] and installing in [$home]");
 
-    # isntall main files
-    install_files( $home . '/' . $repo_dir,
-        $home, [qw(.git .gitignore .ssh README.md t)] );
-
-    # install files in the .ssh directory
-    install_files(
-        $home . '/' . $repo_dir . '/.ssh',
-        $home . '/.ssh',
-        ['.gitignore']
-    );
+    # install files
+    install_files( $home . '/' . $repo_dir, $home );
 
     # link in the bash loader
     configure_bash_loader();
@@ -185,11 +177,16 @@ sub install_files {
 
     # build up skip list
     my $skip_files = { map { $_ => 1 } @$initial_skips };
-    if ( -e "$from_dir/skip" ) {
-        open( my $skip_fh, '<', "$from_dir/skip" );
+    my $recurse_files = [];
+    if ( -e "$from_dir/.dfminstall" ) {
+        open( my $skip_fh, '<', "$from_dir/.dfminstall" );
         foreach my $line (<$skip_fh>) {
             chomp($line);
-            $skip_files->{$line} = 1;
+            my ( $filename, $option ) = split( / /, $line );
+            $skip_files->{$filename} = 1;
+            if ( !defined $option || $option ne 'skip' ) {
+                push( @$recurse_files, $filename );
+            }
         }
         close($skip_fh);
         $skip_files->{skip} = 1;
@@ -212,6 +209,15 @@ sub install_files {
         # skip vim swap files
         next if $direntry =~ /.*\.sw.$/;
 
+        # always skip .dfminstall files
+        next if $direntry eq '.dfminstall';
+
+        # always skip .gitignore files
+        next if $direntry eq '.gitignore';
+
+        # always skip the .git repo
+        next if $direntry eq '.git';
+
         # skip any other files
         next if $skip_files->{$direntry};
 
@@ -226,6 +232,16 @@ sub install_files {
             INFO("  Symlinking $direntry ($symlink_base/$direntry).");
             symlink( "$symlink_base/$direntry", "$direntry" )
                 if !$opts{'dry-run'};
+        }
+    }
+
+    foreach my $recurse (@$recurse_files) {
+        if ( -d $recurse ) {
+            DEBUG("recursing into $recurse");
+            install_files( "$from_dir/$recurse", "$to_dir/$recurse" );
+        }
+        else {
+            WARN("couldn't recurse into $recurse, not a directory");
         }
     }
 }
