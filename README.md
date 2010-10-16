@@ -25,7 +25,9 @@ Finally, to install your dotfiles onto a new system:
 
 ## Full documentation
 
-For more information, just run <tt>dfm --help</tt>.
+For more information, check out the [wiki](http://github.com/justone/dotfiles/wiki).
+
+You can also run <tt>dfm --help</tt>.
 
 ## My dotfiles
 
