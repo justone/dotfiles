@@ -327,9 +327,22 @@ All the subcommands implemented by dfm have the following options:
 
 =item dfm install
 
+This is the default command.  Running 'dfm' is the same as running 'dfm
+install'.
+
 This installs everything in the repository into the current user's home
 directory by making symlinks.  To skip any files, add their names to a file
-named 'skip' in the base of the repository.  This is the default command.
+named '.dfminstall'.  For instance, to skip 'README.md', put this in
+.dfminstall:
+
+    README.md skip
+
+To recurse into a directory and install files inside rather than symlinking the
+directory itself, just add its name to .dfminstall.  For instance, to make 'dfm
+install' symlink files inside of ~/.ssh instead of making ~/.ssh a symlink, put
+this in .dfminstall:
+
+    .ssh
 
 =item dfm updates [--no-fetch]
 
