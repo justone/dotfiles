@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use English qw( -no_match_vars ) ;  # Avoids regex performance penalty
 use Data::Dumper;
 use FindBin qw($Bin);
 use Getopt::Long;
@@ -253,10 +254,16 @@ sub install_files {
 sub configure_bash_loader {
     chdir($home);
 
+    my $profile_filename = '.bashrc';
+
+    if( lc($OSNAME) eq 'darwin' ) {
+        $profile_filename = '.profile';
+    }
+
     my $bashrc_contents;
     {
-        local $/ = undef;
-        if ( open( my $bashrc_in, '<', ".bashrc" ) ) {
+        local $INPUT_RECORD_SEPARATOR = undef;
+        if ( open( my $bashrc_in, '<', $profile_filename ) ) {
             $bashrc_contents = <$bashrc_in>;
             close $bashrc_in;
         }
@@ -267,12 +274,12 @@ sub configure_bash_loader {
 
     # check if the loader is in
     if ( $bashrc_contents !~ /\.bashrc\.load/ ) {
-        INFO("Appending loader to .bashrc");
+        INFO("Appending loader to $profile_filename");
         $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
     }
 
     if ( !$opts{'dry-run'} ) {
-        open( my $bashrc_out, '>', ".bashrc" );
+        open( my $bashrc_out, '>', $profile_filename );
         print $bashrc_out $bashrc_contents;
         close $bashrc_out;
     }
