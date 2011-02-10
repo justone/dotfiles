@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use English qw( -no_match_vars ) ;  # Avoids regex performance penalty
+use English qw( -no_match_vars );    # Avoids regex performance penalty
 use Data::Dumper;
 use FindBin qw($Bin);
 use Getopt::Long;
@@ -256,7 +256,7 @@ sub configure_bash_loader {
 
     my $profile_filename = '.bashrc';
 
-    if( lc($OSNAME) eq 'darwin' ) {
+    if ( lc($OSNAME) eq 'darwin' ) {
         $profile_filename = '.profile';
     }
 
