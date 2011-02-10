@@ -9,6 +9,9 @@ use Getopt::Long;
 use Cwd qw(realpath);
 use File::Spec;
 
+# save path to this dfm program, for use in recursive calls
+my $self_dfm = $0;
+
 my $command;
 foreach my $arg (@ARGV) {
     next if $arg =~ /^-/;
@@ -103,7 +106,7 @@ elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
             if !$opts{'dry-run'};
 
         INFO("re-installing dotfiles");
-        system("dfm install") if !$opts{'dry-run'};
+        system("HOME=$home $self_dfm install") if !$opts{'dry-run'};
     }
     else {
         INFO("no changes to merge");
