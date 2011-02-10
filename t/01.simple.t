@@ -3,10 +3,13 @@
 use Test::More;
 use strict;
 use FindBin qw($Bin);
+use English qw( -no_match_vars );
 
 require "$Bin/helper.pl";
 
 my $file_slurp_available = load_mod("File::Slurp qw(read_file)");
+
+my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
 my @tests = (
     {   count => 9,
@@ -27,8 +30,9 @@ my @tests = (
         SKIP: {
                 skip "File::Slurp not found", 1 unless $file_slurp_available;
 
-                ok( read_file("$home/.bashrc") =~ /bashrc.load/,
-                    "$t - loader present in bashrc" );
+                ok( read_file("$home/$profile_filename") =~ /bashrc.load/,
+                    "$t - loader present in $profile_filename"
+                );
             }
 
             ok( !-e "$home/README.md", "$t - no README.md in homedir" );
@@ -78,8 +82,9 @@ sub check_ssh_recurse {
 SKIP: {
         skip "File::Slurp not found", 1 unless $file_slurp_available;
 
-        ok( read_file("$home/.bashrc") =~ /bashrc.load/,
-            "$t - loader present in bashrc" );
+        ok( read_file("$home/$profile_filename") =~ /bashrc.load/,
+            "$t - loader present in $profile_filename"
+        );
     }
 
     ok( !-e "$home/README.md", "$t - no README.md in homedir" );
