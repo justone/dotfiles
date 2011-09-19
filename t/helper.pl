@@ -23,7 +23,7 @@ sub simple_repo {
     chdir($repo);
     `git init`;
     `git add .`;
-    `git ci -m 'initial commit'`;
+    `git commit -m 'initial commit'`;
     chdir($Bin);
     `git clone --bare $repo $repo.git`;
     `rm -rf $repo`;
