@@ -186,7 +186,7 @@ sub install_files {
         open( my $skip_fh, '<', "$from_dir/.dfminstall" );
         foreach my $line (<$skip_fh>) {
             chomp($line);
-            if ( length ( $line ) ) {
+            if ( length($line) ) {
                 my ( $filename, $option ) = split( / /, $line );
                 $skip_files->{$filename} = 1;
                 if ( !defined $option || $option ne 'skip' ) {
