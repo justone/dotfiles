@@ -212,7 +212,7 @@ sub install_files {
         foreach my $line (<$skip_fh>) {
             chomp($line);
             if ( length($line) ) {
-                my ( $filename, $option ) = split( / /, $line );
+                my ( $filename, $option ) = split( q{ }, $line );
                 $skip_files->{$filename} = 1;
                 if ( !defined $option || $option ne 'skip' ) {
                     push( @$recurse_files, $filename );
@@ -312,7 +312,7 @@ sub uninstall_files {
         foreach my $line (<$dfminstall_fh>) {
             chomp($line);
             if ( length($line) ) {
-                my ( $filename, $option ) = split( / /, $line );
+                my ( $filename, $option ) = split( q{ }, $line );
                 if ( !defined $option || $option ne 'skip' ) {
                     push( @$recurse_files, $filename );
                 }
