@@ -60,6 +60,7 @@ sub minimum_home_with_ssh {
     # create repo and copy in dfm
     `echo ".ssh" >> $repo/.dfminstall`;
     `mkdir -p $repo/.ssh`;
+    `mkdir -p $repo/.ssh/config`;
     `echo "sshignore" > $repo/.ssh/.gitignore`;
 
     return ( $home, $repo );

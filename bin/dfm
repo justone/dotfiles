@@ -30,6 +30,12 @@ $repo_dir =~ s/\/bin//;
 
 DEBUG("Repo dir: $repo_dir");
 
+my $profile_filename = '.bashrc';
+
+if ( lc($OSNAME) eq 'darwin' ) {
+    $profile_filename = '.profile';
+}
+
 my %opts;
 if ( $command eq 'install' ) {
     GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
@@ -111,6 +117,25 @@ elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
     else {
         INFO("no changes to merge");
     }
+}
+elsif ( $command eq 'un' || $command eq 'uninstall' ) {
+    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
+
+    if ( $opts{'help'} ) {
+        show_usage();
+        exit;
+    }
+
+    INFO( "Uninstalling dotfiles..."
+            . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
+
+    DEBUG("Running in [$Bin] and installing in [$home]");
+
+    # uninstall files
+    uninstall_files( $home . '/' . $repo_dir, $home );
+
+    # remove the bash loader
+    unconfigure_bash_loader();
 }
 else {
 
@@ -259,12 +284,105 @@ sub install_files {
 sub configure_bash_loader {
     chdir($home);
 
-    my $profile_filename = '.bashrc';
+    my $bashrc_contents = _read_bashrc_contents();
 
-    if ( lc($OSNAME) eq 'darwin' ) {
-        $profile_filename = '.profile';
+    # check if the loader is in
+    if ( $bashrc_contents !~ /\.bashrc\.load/ ) {
+        INFO("Appending loader to $profile_filename");
+        $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
     }
 
+    _write_bashrc_contents($bashrc_contents);
+}
+
+sub uninstall_files {
+    my ( $to_dir, $from_dir ) = @_;
+
+    DEBUG("Uninstalling from $from_dir");
+
+    my $backup_dir = $from_dir . '/.backup';
+    DEBUG("Backup dir: $backup_dir");
+
+    chdir($from_dir);
+
+    # build up recurse list
+    my $recurse_files = [];
+    if ( -e "$to_dir/.dfminstall" ) {
+        open( my $dfminstall_fh, '<', "$to_dir/.dfminstall" );
+        foreach my $line (<$dfminstall_fh>) {
+            chomp($line);
+            if ( length($line) ) {
+                my ( $filename, $option ) = split( / /, $line );
+                if ( !defined $option || $option ne 'skip' ) {
+                    push( @$recurse_files, $filename );
+                }
+            }
+        }
+        close($dfminstall_fh);
+    }
+
+    my $dirh;
+    opendir $dirh, $from_dir;
+    foreach my $direntry ( readdir($dirh) ) {
+
+        DEBUG(" Working on $direntry");
+
+        if ( -l $direntry ) {
+            my $link_target = readlink($direntry);
+            DEBUG("$direntry points a $link_target");
+            my ( $volume, @elements ) = File::Spec->splitpath($link_target);
+            my $element = pop @elements;
+
+            my $target_base = realpath(
+                File::Spec->rel2abs( File::Spec->catpath( '', @elements ) ) );
+
+            DEBUG("target_base $target_base $to_dir");
+            if ( $target_base eq $to_dir ) {
+                INFO("  Removing $direntry ($link_target).");
+                unlink($direntry) if !$opts{'dry-run'};
+            }
+
+            my $backup_path = File::Spec->catpath( '', '.backup', $element );
+            if ( -e $backup_path ) {
+                INFO("  Restoring $direntry from backup.");
+                rename( $backup_path, $element ) if !$opts{'dry-run'};
+            }
+        }
+    }
+
+    foreach my $recurse (@$recurse_files) {
+        if ( -d "$from_dir/$recurse" ) {
+            DEBUG("recursing into $recurse");
+            uninstall_files( "$to_dir/$recurse", "$from_dir/$recurse" );
+        }
+        else {
+            WARN("couldn't recurse into $recurse, not a directory");
+        }
+    }
+}
+
+sub unconfigure_bash_loader {
+    chdir($home);
+
+    my $bashrc_contents = _read_bashrc_contents();
+
+    # remove bash loader if found
+    $bashrc_contents =~ s{\n. \$HOME/.bashrc.load\n}{}gs;
+
+    _write_bashrc_contents($bashrc_contents);
+}
+
+sub _write_bashrc_contents {
+    my $bashrc_contents = shift;
+
+    if ( !$opts{'dry-run'} ) {
+        open( my $bashrc_out, '>', $profile_filename );
+        print $bashrc_out $bashrc_contents;
+        close $bashrc_out;
+    }
+}
+
+sub _read_bashrc_contents {
     my $bashrc_contents;
     {
         local $INPUT_RECORD_SEPARATOR = undef;
@@ -276,24 +394,14 @@ sub configure_bash_loader {
             $bashrc_contents = '';
         }
     }
-
-    # check if the loader is in
-    if ( $bashrc_contents !~ /\.bashrc\.load/ ) {
-        INFO("Appending loader to $profile_filename");
-        $bashrc_contents .= "\n. \$HOME/.bashrc.load\n";
-    }
-
-    if ( !$opts{'dry-run'} ) {
-        open( my $bashrc_out, '>', $profile_filename );
-        print $bashrc_out $bashrc_contents;
-        close $bashrc_out;
-    }
+    return $bashrc_contents;
 }
 
 sub show_usage {
     print <<END;
 Usage:
     dfm install [--verbose|--quiet] [--dry-run]
+    dfm uninstall [--verbose|--quiet] [--dry-run]
     dfm updates [--verbose|--quiet] [--dry-run] [--no-fetch]
     dfm mergeandinstall [--verbose|--quiet] [--dry-run] [--merge|--rebase]
     dfm [git subcommand] [git options]
@@ -311,6 +419,10 @@ __END__
 =head1 SYNOPSIS
 
     dfm install [--verbose|--quiet] [--dry-run]
+
+    dfm uninstall [--verbose|--quiet] [--dry-run]
+     - or -
+    dfm un [--verbose|--quiet] [--dry-run]
 
     dfm updates [--verbose|--quiet] [--dry-run] [--no-fetch]
 
@@ -336,6 +448,11 @@ All the subcommands implemented by dfm have the following options:
 =head1 COMMANDS
 
 =over
+
+=item dfm uninstall
+
+This removes all traces of dfm and the dotfiles.  It basically is the reverse
+of 'dfm install'.
 
 =item dfm install
 
