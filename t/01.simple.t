@@ -34,6 +34,18 @@ SKIP: {
     ok( !-e "$home/t",         'no t dir in homedir' );
 };
 
+subtest 'dangling symlinks' => sub {
+    my ( $home, $repo ) = minimum_home_with_ssh('dangling');
+
+    symlink( ".dotfiles/.other",         "$home/.other" );
+    symlink( "../.dotfiles/.ssh/.other", "$home/.ssh/.other" );
+
+    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+
+    ok( !-l "$home/.other",      'dangling symlink is gone' );
+    ok( !-l "$home/.ssh/.other", 'dangling symlink is gone' );
+};
+
 subtest 'with . ssh recurse( no . ssh dir )' => sub {
 
     my ( $home, $repo ) = minimum_home_with_ssh( 'ssh_no', 1 );

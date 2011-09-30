@@ -292,6 +292,8 @@ sub install_files {
         }
     }
 
+    cleanup_dangling_symlinks( $to_dir, $from_dir );
+
     foreach my $recurse (@$recurse_files) {
         if ( -d "$from_dir/$recurse" ) {
             DEBUG("recursing into $recurse");
@@ -383,6 +385,36 @@ sub uninstall_files {
         }
         else {
             WARN("couldn't recurse into $recurse, not a directory");
+        }
+    }
+}
+
+sub cleanup_dangling_symlinks {
+    my ( $target_dir, $source_dir ) = @_;
+
+    DEBUG(" Cleaning up dangling symlinks in $target_dir");
+
+    my $dirh;
+    opendir $dirh, $target_dir;
+    foreach my $direntry ( readdir($dirh) ) {
+
+        DEBUG(" Working on $direntry");
+        if ( -l $direntry && !-e $direntry ) {
+            my $link_target = readlink($direntry);
+            DEBUG("$direntry points at $link_target");
+            my ( $volume, @elements ) = File::Spec->splitpath($link_target);
+            my $element = pop @elements;
+
+            my $target_base = realpath(
+                File::Spec->rel2abs( File::Spec->catpath( '', @elements ) ) );
+
+            DEBUG("target_base $target_base $source_dir");
+            if ( $target_base eq $source_dir ) {
+                INFO(
+                    "  Cleaning up dangling symlink $direntry ($link_target)."
+                );
+                unlink($direntry) if !$opts{'dry-run'};
+            }
         }
     }
 }
