@@ -38,6 +38,21 @@ subtest 'updates and mergeandinstall' => sub {
     ok( -l "$home2/.testfile", 'updated file is installed' );
 };
 
+subtest 'umi' => sub {
+    my ( $home, $repo, $origin ) = minimum_home('host1');
+    my ( $home2, $repo2 ) = minimum_home( 'host2', $origin );
+
+    add_file_and_push($repo);
+
+    my $output;
+
+    $output = `HOME=$home2 perl $repo2/bin/dfm umi 2> /dev/null`;
+    like( $output, qr/adding \.testfile/, 'message in output' );
+    like( $output, qr/\.testfile/,        'message in output' );
+    ok( -e "$repo2/.testfile", 'updated file is there' );
+    ok( -l "$home2/.testfile", 'updated file is installed' );
+};
+
 done_testing;
 
 sub add_file_and_push {

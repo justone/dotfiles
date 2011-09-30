@@ -64,16 +64,7 @@ elsif ( $command eq 'updates' ) {
         exit;
     }
 
-    chdir( $home . '/' . $repo_dir );
-
-    if ( !$opts{'no-fetch'} ) {
-        DEBUG('fetching changes');
-        system("git fetch") if !$opts{'dry-run'};
-    }
-
-    my $current_branch = get_current_branch();
-
-    print get_changes("$current_branch..origin/$current_branch"), "\n";
+    fetch_updates( \%opts );
 }
 elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
     GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help', 'merge',
@@ -84,39 +75,21 @@ elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
         exit;
     }
 
-    chdir( $home . '/' . $repo_dir );
+    merge_and_install( \%opts );
+}
+elsif ( $command eq 'umi' || $command eq 'updatemergeandinstall' ) {
+    GetOptions(
+        \%opts,     'verbose', 'quiet', 'dry-run',
+        'no-fetch', 'merge',   'help'
+    );
 
-    my $current_branch = get_current_branch();
-
-    my $sync_command = $opts{'rebase'} ? 'rebase' : 'merge';
-
-    if ( get_changes("$current_branch..origin/$current_branch") ) {
-
-        # check for local commits
-        if ( my $local_changes
-            = get_changes("origin/$current_branch..$current_branch") )
-        {
-
-            # if a decision wasn't made about how to deal with local commits
-            if ( !$opts{'merge'} && !$opts{'rebase'} ) {
-                WARN(
-                    "local changes detected, run with either --merge or --rebase"
-                );
-                print $local_changes, "\n";
-                exit;
-            }
-        }
-
-        INFO("using $sync_command to bring in changes");
-        system("git $sync_command origin/$current_branch")
-            if !$opts{'dry-run'};
-
-        INFO("re-installing dotfiles");
-        system("HOME=$home $self_dfm install") if !$opts{'dry-run'};
+    if ( $opts{'help'} ) {
+        show_usage();
+        exit;
     }
-    else {
-        INFO("no changes to merge");
-    }
+
+    fetch_updates( \%opts );
+    merge_and_install( \%opts );
 }
 elsif ( $command eq 'un' || $command eq 'uninstall' ) {
     GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
@@ -176,6 +149,59 @@ sub INFO {
 
 sub DEBUG {
     printf "DEBUG: %s\n", shift if $opts{verbose};
+}
+
+sub fetch_updates {
+    my $opts = shift;
+
+    chdir( $home . '/' . $repo_dir );
+
+    if ( !$opts->{'no-fetch'} ) {
+        DEBUG('fetching changes');
+        system("git fetch") if !$opts->{'dry-run'};
+    }
+
+    my $current_branch = get_current_branch();
+
+    print get_changes("$current_branch..origin/$current_branch"), "\n";
+}
+
+sub merge_and_install {
+    my $opts = shift;
+
+    chdir( $home . '/' . $repo_dir );
+
+    my $current_branch = get_current_branch();
+
+    my $sync_command = $opts->{'rebase'} ? 'rebase' : 'merge';
+
+    if ( get_changes("$current_branch..origin/$current_branch") ) {
+
+        # check for local commits
+        if ( my $local_changes
+            = get_changes("origin/$current_branch..$current_branch") )
+        {
+
+            # if a decision wasn't made about how to deal with local commits
+            if ( !$opts->{'merge'} && !$opts->{'rebase'} ) {
+                WARN(
+                    "local changes detected, run with either --merge or --rebase"
+                );
+                print $local_changes, "\n";
+                exit;
+            }
+        }
+
+        INFO("using $sync_command to bring in changes");
+        system("git $sync_command origin/$current_branch")
+            if !$opts->{'dry-run'};
+
+        INFO("re-installing dotfiles");
+        system("HOME=$home $self_dfm install") if !$opts->{'dry-run'};
+    }
+    else {
+        INFO("no changes to merge");
+    }
 }
 
 # function to install files
@@ -404,6 +430,7 @@ Usage:
     dfm uninstall [--verbose|--quiet] [--dry-run]
     dfm updates [--verbose|--quiet] [--dry-run] [--no-fetch]
     dfm mergeandinstall [--verbose|--quiet] [--dry-run] [--merge|--rebase]
+    dfm updatemergeandinstall [--verbose|--quiet] [--dry-run] [--merge|--rebase] [--no-fetch]
     dfm [git subcommand] [git options]
 
 For full documentation, run "perldoc ~/$repo_dir/bin/dfm".
@@ -483,6 +510,10 @@ to skip the fetch and just show what's new.
 
 This merges or rebases the upstream changes in and re-installs dotfiiles.  A
 convenient alias is 'mi'.
+
+=item dfm updatemergeandinstall [--merge|--rebase] [--no-fetch]
+
+This combines 'updates' and 'mergeandinstall'.  A convenient alias is 'umi'.
 
 =item dfm [git subcommand] [git options]
 
