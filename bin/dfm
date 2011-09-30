@@ -206,35 +206,35 @@ sub merge_and_install {
 
 # function to install files
 sub install_files {
-    my ( $from_dir, $to_dir, $initial_skips ) = @_;
+    my ( $source_dir, $target_dir, $initial_skips ) = @_;
     $initial_skips ||= [];
 
-    DEBUG("Installing from $from_dir into $to_dir");
+    DEBUG("Installing from $source_dir into $target_dir");
 
     my $symlink_base;
 
     # if the paths have no first element in common
-    if ( ( File::Spec->splitdir($from_dir) )[1] ne
-        ( File::Spec->splitdir($to_dir) )[1] )
+    if ( ( File::Spec->splitdir($source_dir) )[1] ne
+        ( File::Spec->splitdir($target_dir) )[1] )
     {
-        $symlink_base = $from_dir;    # use absolute path
+        $symlink_base = $source_dir;    # use absolute path
     }
     else {
 
         # otherwise, calculate the relative path between the two directories
-        $symlink_base = File::Spec->abs2rel( $from_dir, $to_dir );
+        $symlink_base = File::Spec->abs2rel( $source_dir, $target_dir );
     }
 
-    my $backup_dir = $to_dir . '/.backup';
+    my $backup_dir = $target_dir . '/.backup';
     DEBUG("Backup dir: $backup_dir");
 
-    chdir($to_dir);
+    chdir($target_dir);
 
     # build up skip list
     my $skip_files = { map { $_ => 1 } @$initial_skips };
     my $recurse_files = [];
-    if ( -e "$from_dir/.dfminstall" ) {
-        open( my $skip_fh, '<', "$from_dir/.dfminstall" );
+    if ( -e "$source_dir/.dfminstall" ) {
+        open( my $skip_fh, '<', "$source_dir/.dfminstall" );
         foreach my $line (<$skip_fh>) {
             chomp($line);
             if ( length($line) ) {
@@ -257,7 +257,7 @@ sub install_files {
     }
 
     my $dirh;
-    opendir $dirh, $from_dir;
+    opendir $dirh, $source_dir;
     foreach my $direntry ( readdir($dirh) ) {
 
         # skip current and parent
@@ -292,16 +292,16 @@ sub install_files {
         }
     }
 
-    cleanup_dangling_symlinks( $to_dir, $from_dir );
+    cleanup_dangling_symlinks( $source_dir, $target_dir );
 
     foreach my $recurse (@$recurse_files) {
-        if ( -d "$from_dir/$recurse" ) {
+        if ( -d "$source_dir/$recurse" ) {
             DEBUG("recursing into $recurse");
             if ( !-d $recurse ) {
                 DEBUG("making directory $recurse");
                 mkdir($recurse);
             }
-            install_files( "$from_dir/$recurse", "$to_dir/$recurse" );
+            install_files( "$source_dir/$recurse", "$target_dir/$recurse" );
         }
         else {
             WARN("couldn't recurse into $recurse, not a directory");
@@ -324,19 +324,19 @@ sub configure_bash_loader {
 }
 
 sub uninstall_files {
-    my ( $to_dir, $from_dir ) = @_;
+    my ( $source_dir, $target_dir ) = @_;
 
-    DEBUG("Uninstalling from $from_dir");
+    DEBUG("Uninstalling from $target_dir");
 
-    my $backup_dir = $from_dir . '/.backup';
+    my $backup_dir = $target_dir . '/.backup';
     DEBUG("Backup dir: $backup_dir");
 
-    chdir($from_dir);
+    chdir($target_dir);
 
     # build up recurse list
     my $recurse_files = [];
-    if ( -e "$to_dir/.dfminstall" ) {
-        open( my $dfminstall_fh, '<', "$to_dir/.dfminstall" );
+    if ( -e "$source_dir/.dfminstall" ) {
+        open( my $dfminstall_fh, '<', "$source_dir/.dfminstall" );
         foreach my $line (<$dfminstall_fh>) {
             chomp($line);
             if ( length($line) ) {
@@ -350,7 +350,7 @@ sub uninstall_files {
     }
 
     my $dirh;
-    opendir $dirh, $from_dir;
+    opendir $dirh, $target_dir;
     foreach my $direntry ( readdir($dirh) ) {
 
         DEBUG(" Working on $direntry");
@@ -364,8 +364,8 @@ sub uninstall_files {
             my $target_base = realpath(
                 File::Spec->rel2abs( File::Spec->catpath( '', @elements ) ) );
 
-            DEBUG("target_base $target_base $to_dir");
-            if ( $target_base eq $to_dir ) {
+            DEBUG("target_base $target_base $source_dir");
+            if ( $target_base eq $source_dir ) {
                 INFO("  Removing $direntry ($link_target).");
                 unlink($direntry) if !$opts{'dry-run'};
             }
@@ -379,9 +379,9 @@ sub uninstall_files {
     }
 
     foreach my $recurse (@$recurse_files) {
-        if ( -d "$from_dir/$recurse" ) {
+        if ( -d "$target_dir/$recurse" ) {
             DEBUG("recursing into $recurse");
-            uninstall_files( "$to_dir/$recurse", "$from_dir/$recurse" );
+            uninstall_files( "$source_dir/$recurse", "$target_dir/$recurse" );
         }
         else {
             WARN("couldn't recurse into $recurse, not a directory");
@@ -390,7 +390,7 @@ sub uninstall_files {
 }
 
 sub cleanup_dangling_symlinks {
-    my ( $target_dir, $source_dir ) = @_;
+    my ( $source_dir, $target_dir ) = @_;
 
     DEBUG(" Cleaning up dangling symlinks in $target_dir");
 
