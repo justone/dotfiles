@@ -11,17 +11,9 @@ my $file_slurp_available = load_mod("File::Slurp qw(read_file)");
 
 my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
-# TODO test dry run
-
 subtest 'uninstall dotfiles' => sub {
     my ( $home, $repo ) = minimum_home_with_ssh('uninstall');
-    symlink( "/anywhere/else", "$home/.other" );
-    mkdir("$home/.backup");
-    mkdir("$home/.backup/bin");
-    mkdir("$home/.backup/bin/preexisting");
-    mkdir("$home/.ssh/.backup");
-    mkdir("$home/.ssh/.backup/config");
-    mkdir("$home/.ssh/.backup/config/preexisting");
+    extra_setup($home);
 
     my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
 
@@ -47,4 +39,41 @@ SKIP: {
     }
 };
 
+subtest 'uninstall dotfiles (dry-run)' => sub {
+    my ( $home, $repo ) = minimum_home_with_ssh('uninstall');
+    extra_setup($home);
+
+    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+
+    ok( -d "$home/.backup", 'main backup dir exists' );
+    ok( -l "$home/bin",     'bin is a symlink' );
+
+    my $output
+        = `HOME=$home perl $repo/bin/dfm --dry-run --verbose uninstall`;
+
+    ok( -l "$home/bin", 'bin is still a symlink' );
+
+    ok( -l "$home/.ssh/config", '.ssh/config is still a symlink' );
+
+SKIP: {
+        skip 'File::Slurp not found', 1 unless $file_slurp_available;
+
+        ok( read_file("$home/$profile_filename") =~ /bashrc.load/,
+            "loader still exists in $profile_filename"
+        );
+    }
+};
+
 done_testing;
+
+sub extra_setup {
+    my $home = shift;
+
+    symlink( "/anywhere/else", "$home/.other" );
+    mkdir("$home/.backup");
+    mkdir("$home/.backup/bin");
+    mkdir("$home/.backup/bin/preexisting");
+    mkdir("$home/.ssh/.backup");
+    mkdir("$home/.ssh/.backup/config");
+    mkdir("$home/.ssh/.backup/config/preexisting");
+}
