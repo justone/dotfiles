@@ -9,6 +9,8 @@ use Getopt::Long;
 use Cwd qw(realpath);
 use File::Spec;
 
+our $VERSION = '0.5';
+
 # save path to this dfm program, for use in recursive calls
 my $self_dfm = $0;
 
@@ -40,11 +42,16 @@ my %opts;
 
 # parse global options first
 Getopt::Long::Configure('pass_through');
-GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
+GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help', 'version' );
 Getopt::Long::Configure('no_pass_through');
 
 if ( $opts{'help'} ) {
     show_usage();
+    exit;
+}
+
+if ( $opts{'version'} ) {
+    show_version();
     exit;
 }
 
@@ -434,7 +441,9 @@ sub _read_bashrc_contents {
 }
 
 sub show_usage {
+    show_version();
     print <<END;
+
 Usage:
     dfm install [--verbose|--quiet] [--dry-run]
     dfm uninstall [--verbose|--quiet] [--dry-run]
@@ -445,6 +454,10 @@ Usage:
 
 For full documentation, run "perldoc ~/$repo_dir/bin/dfm".
 END
+}
+
+sub show_version {
+    print "dfm version $VERSION\n";
 }
 
 __END__
@@ -481,6 +494,7 @@ All the subcommands implemented by dfm have the following options:
   --verbose     Show extra information about what dfm is doing
   --quiet       Show as little info as possible.
   --dry-run     Don't do anything.
+  --version     Print version information.
 
 =head1 COMMANDS
 
