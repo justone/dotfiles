@@ -37,14 +37,18 @@ if ( lc($OSNAME) eq 'darwin' ) {
 }
 
 my %opts;
+
+# parse global options first
+Getopt::Long::Configure('pass_through');
+GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
+Getopt::Long::Configure('no_pass_through');
+
+if ( $opts{'help'} ) {
+    show_usage();
+    exit;
+}
+
 if ( $command eq 'install' ) {
-    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
-
-    if ( $opts{'help'} ) {
-        show_usage();
-        exit;
-    }
-
     INFO(
         "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
 
@@ -57,48 +61,22 @@ if ( $command eq 'install' ) {
     configure_bash_loader();
 }
 elsif ( $command eq 'updates' ) {
-    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'no-fetch', 'help' );
-
-    if ( $opts{'help'} ) {
-        show_usage();
-        exit;
-    }
+    GetOptions( \%opts, 'no-fetch' );
 
     fetch_updates( \%opts );
 }
 elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
-    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help', 'merge',
-        'rebase' );
-
-    if ( $opts{'help'} ) {
-        show_usage();
-        exit;
-    }
+    GetOptions( \%opts, 'merge', 'rebase' );
 
     merge_and_install( \%opts );
 }
 elsif ( $command eq 'umi' || $command eq 'updatemergeandinstall' ) {
-    GetOptions(
-        \%opts,     'verbose', 'quiet', 'dry-run',
-        'no-fetch', 'merge',   'help'
-    );
-
-    if ( $opts{'help'} ) {
-        show_usage();
-        exit;
-    }
+    GetOptions( \%opts, 'merge', 'no-fetch' );
 
     fetch_updates( \%opts );
     merge_and_install( \%opts );
 }
 elsif ( $command eq 'un' || $command eq 'uninstall' ) {
-    GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help' );
-
-    if ( $opts{'help'} ) {
-        show_usage();
-        exit;
-    }
-
     INFO( "Uninstalling dotfiles..."
             . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
 
