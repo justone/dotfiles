@@ -11,8 +11,8 @@ First, fork this repo.
 
 Then, add your dotfiles:
 
-    $ git clone git@github.com:username/dotfiles.git
-    $ cd dotfiles
+    $ git clone git@github.com:username/dotfiles.git .dotfiles
+    $ cd .dotfiles
     $  # edit files
     $  # edit files
     $ git push origin master
