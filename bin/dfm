@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use English qw( -no_match_vars );    # Avoids regex performance penalty
 use Data::Dumper;
-use FindBin qw($Bin);
+use FindBin qw($RealBin);
 use Getopt::Long;
 use Cwd qw(realpath);
 use File::Spec;
@@ -26,7 +26,7 @@ if ( !$command ) {
 
 my $home = realpath( $ENV{HOME} );
 
-my $repo_dir = $Bin;
+my $repo_dir = $RealBin;
 $repo_dir =~ s/$home\///;
 $repo_dir =~ s/\/bin//;
 
@@ -59,7 +59,7 @@ if ( $command eq 'install' ) {
     INFO(
         "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
 
-    DEBUG("Running in [$Bin] and installing in [$home]");
+    DEBUG("Running in [$RealBin] and installing in [$home]");
 
     # install files
     install_files( $home . '/' . $repo_dir, $home );
@@ -87,7 +87,7 @@ elsif ( $command eq 'un' || $command eq 'uninstall' ) {
     INFO( "Uninstalling dotfiles..."
             . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
 
-    DEBUG("Running in [$Bin] and installing in [$home]");
+    DEBUG("Running in [$RealBin] and installing in [$home]");
 
     # uninstall files
     uninstall_files( $home . '/' . $repo_dir, $home );

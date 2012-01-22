@@ -15,7 +15,7 @@ my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
 subtest 'updates and mergeandinstall' => sub {
     my ( $home, $repo, $origin ) = minimum_home('host1');
-    my ( $home2, $repo2 ) = minimum_home( 'host2', $origin );
+    my ( $home2, $repo2 ) = minimum_home( 'host2', { origin => $origin } );
 
     add_file_and_push( $home, $repo );
 
@@ -42,7 +42,8 @@ subtest 'updates and mergeandinstall' => sub {
 
 subtest 'modifications in two repos, rebase' => sub {
     my ( $home, $repo, $origin ) = minimum_home('host1_rebase');
-    my ( $home2, $repo2 ) = minimum_home( 'host2_rebase', $origin );
+    my ( $home2, $repo2 )
+        = minimum_home( 'host2_rebase', { origin => $origin } );
 
     add_file_and_push( $home, $repo );
     add_file( $home2, $repo2, '.otherfile' );
@@ -77,7 +78,8 @@ subtest 'modifications in two repos, rebase' => sub {
 
 subtest 'modifications in two repos, merge' => sub {
     my ( $home, $repo, $origin ) = minimum_home('host1_merge');
-    my ( $home2, $repo2 ) = minimum_home( 'host2_merge', $origin );
+    my ( $home2, $repo2 )
+        = minimum_home( 'host2_merge', { origin => $origin } );
 
     add_file_and_push( $home, $repo );
     add_file( $home2, $repo2, '.otherfile' );
@@ -112,7 +114,7 @@ subtest 'modifications in two repos, merge' => sub {
 
 subtest 'umi' => sub {
     my ( $home, $repo, $origin ) = minimum_home('host1');
-    my ( $home2, $repo2 ) = minimum_home( 'host2', $origin );
+    my ( $home2, $repo2 ) = minimum_home( 'host2', { origin => $origin } );
 
     add_file_and_push( $home, $repo );
 
