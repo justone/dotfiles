@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 use FindBin qw($Bin);
+use Test::More;
 
 sub simple_repo {
     my $name = shift;
@@ -71,5 +72,11 @@ sub load_mod {
 
     eval "use $module_name_and_args";
     return !$@;
+}
+
+sub check_minimum_test_more_version {
+    if ( $Test::More::VERSION < 0.98 ) {
+        plan skip_all => 'Test::More version 0.98 required';
+    }
 }
 1;

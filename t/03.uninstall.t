@@ -9,18 +9,22 @@ require "$Bin/helper.pl";
 
 my $file_slurp_available = load_mod("File::Slurp qw(read_file)");
 
+check_minimum_test_more_version();
+
 my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
 subtest 'uninstall dotfiles' => sub {
     my ( $home, $repo ) = minimum_home_with_ssh('uninstall');
     extra_setup($home);
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    my $output;
+
+    $output = `HOME=$home perl $repo/bin/dfm --verbose`;
 
     ok( -d "$home/.backup", 'main backup dir exists' );
     ok( -l "$home/bin",     'bin is a symlink' );
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose uninstall`;
+    $output = `HOME=$home perl $repo/bin/dfm --verbose uninstall`;
 
     ok( !-l "$home/bin",            'bin is no longer a symlink' );
     ok( -e "$home/bin/preexisting", 'bin from backup is restored' );
@@ -43,13 +47,14 @@ subtest 'uninstall dotfiles (dry-run)' => sub {
     my ( $home, $repo ) = minimum_home_with_ssh('uninstall');
     extra_setup($home);
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    my $output;
+
+    $output = `HOME=$home perl $repo/bin/dfm --verbose`;
 
     ok( -d "$home/.backup", 'main backup dir exists' );
     ok( -l "$home/bin",     'bin is a symlink' );
 
-    my $output
-        = `HOME=$home perl $repo/bin/dfm --dry-run --verbose uninstall`;
+    $output = `HOME=$home perl $repo/bin/dfm --dry-run --verbose uninstall`;
 
     ok( -l "$home/bin", 'bin is still a symlink' );
 

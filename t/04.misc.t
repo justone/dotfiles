@@ -8,6 +8,8 @@ require "$Bin/helper.pl";
 
 my $version = '0.5';
 
+check_minimum_test_more_version();
+
 subtest 'help works on all subcommands' => sub {
     my ( $home, $repo ) = minimum_home('help');
 

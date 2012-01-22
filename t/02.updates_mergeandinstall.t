@@ -9,6 +9,8 @@ require "$Bin/helper.pl";
 
 my $file_slurp_available = load_mod('File::Slurp qw(read_file)');
 
+check_minimum_test_more_version();
+
 my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
 subtest 'updates and mergeandinstall' => sub {
@@ -103,7 +105,7 @@ subtest 'modifications in two repos, merge' => sub {
     $output = `HOME=$home2 perl $repo2/bin/dfm log 2> /dev/null`;
     like(
         $output,
-        qr/Merge remote-tracking branch 'origin\/master'/,
+        qr/Merge remote(-tracking)? branch 'origin\/master'/,
         'git merge log message seen'
     );
 };

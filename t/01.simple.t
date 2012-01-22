@@ -9,11 +9,14 @@ require "$Bin/helper.pl";
 
 my $file_slurp_available = load_mod('File::Slurp qw(read_file)');
 
+check_minimum_test_more_version();
+
 my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
 subtest 'simplest' => sub {
-    my ( $home, $repo, $origin ) = minimum_home('simple');
-    my ( $home, $repo ) = minimum_home( 'simple2', $origin );
+    my ( $home, $repo, $origin );
+    ( $home, $repo, $origin ) = minimum_home('simple');
+    ( $home, $repo ) = minimum_home( 'simple2', $origin );
     my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
 
     ok( -d "$home/.backup",      'main backup dir exists' );
