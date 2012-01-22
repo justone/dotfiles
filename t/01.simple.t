@@ -82,6 +82,39 @@ subtest 'with bin recurse' => sub {
         'existing binary still intact' );
 };
 
+subtest 'check deprecated recursion' => sub {
+    my ( $home, $repo );
+
+    ( $home, $repo )
+        = minimum_home( 'deprecated_recurse',
+        { dfminstall_contents => 'bin' } );
+
+    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    like(
+        $output,
+        qr(using implied recursion in .dfminstall is deprecated),
+        'warning present'
+    );
+    like( $output, qr($repo/.dfminstall), '.dfminstall path present' );
+    like(
+        $output,
+        qr('bin recurse'),
+        'proper .dfminstall contents mentioned'
+    );
+
+    ( $home, $repo )
+        = minimum_home( 'deprecated_recurse',
+        { dfminstall_contents => 'bin recurse' } );
+
+    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    unlike(
+        $output,
+        qr(using implied recursion in .dfminstall is deprecated),
+        'warning present when keyword used'
+    );
+
+};
+
 done_testing;
 
 sub check_ssh_recurse {
