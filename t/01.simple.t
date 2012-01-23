@@ -70,10 +70,10 @@ subtest 'with bin recurse' => sub {
     ( $home, $repo, $origin )
         = minimum_home( 'bin_recurse', { dfminstall_contents => 'bin' } );
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
-
     `mkdir -p $home/bin`;
     `echo "another bin" > $home/bin/another`;
+
+    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
 
     ok( -d "$home/.backup", 'main backup dir exists' );
     ok( -d "$home/bin",     'bin is a directory' );
