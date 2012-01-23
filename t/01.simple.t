@@ -115,6 +115,26 @@ subtest 'check deprecated recursion' => sub {
 
 };
 
+subtest 'switch to recursion' => sub {
+    my ( $home, $repo, $origin );
+    ( $home, $repo, $origin ) = minimum_home('switch_recurse');
+
+    my $output;
+
+    $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+
+    ok( -d "$home/.backup", 'main backup dir exists' );
+    ok( -l "$home/bin",     'bin is a symlink' );
+
+    `echo "bin recurse" >> $repo/.dfminstall`;
+
+    $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+
+    ok( -d "$home/.backup", 'main backup dir exists' );
+    ok( -d "$home/bin",     'bin is a directory' );
+    ok( -l "$home/bin/dfm", 'dfm is a symlink' );
+};
+
 done_testing;
 
 sub check_ssh_recurse {

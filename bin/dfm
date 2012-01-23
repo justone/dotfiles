@@ -292,6 +292,10 @@ sub install_files {
     foreach my $recurse (@$recurse_files) {
         if ( -d "$source_dir/$recurse" ) {
             DEBUG("recursing into $recurse");
+            if ( -l $recurse ) {
+                DEBUG("removing symlink $recurse");
+                unlink($recurse);
+            }
             if ( !-d $recurse ) {
                 DEBUG("making directory $recurse");
                 mkdir($recurse);
