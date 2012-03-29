@@ -291,19 +291,19 @@ sub install_files {
 
     foreach my $recurse (@$recurse_files) {
         if ( -d "$source_dir/$recurse" ) {
-            DEBUG("recursing into $recurse");
-            if ( -l $recurse ) {
-                DEBUG("removing symlink $recurse");
-                unlink($recurse);
+            DEBUG("recursing into $source_dir/$recurse");
+            if ( -l "$target_dir/$recurse" ) {
+                DEBUG("removing symlink $target_dir/$recurse");
+                unlink("$target_dir/$recurse");
             }
-            if ( !-d $recurse ) {
-                DEBUG("making directory $recurse");
-                mkdir($recurse);
+            if ( !-d "$target_dir/$recurse" ) {
+                DEBUG("making directory $target_dir/$recurse");
+                mkdir("$target_dir/$recurse");
             }
             install_files( "$source_dir/$recurse", "$target_dir/$recurse" );
         }
         else {
-            WARN("couldn't recurse into $recurse, not a directory");
+            WARN("couldn't recurse into $source_dir/$recurse, not a directory");
         }
     }
 }
@@ -379,11 +379,11 @@ sub uninstall_files {
 
     foreach my $recurse (@$recurse_files) {
         if ( -d "$target_dir/$recurse" ) {
-            DEBUG("recursing into $recurse");
+            DEBUG("recursing into $target_dir/$recurse");
             uninstall_files( "$source_dir/$recurse", "$target_dir/$recurse" );
         }
         else {
-            WARN("couldn't recurse into $recurse, not a directory");
+            WARN("couldn't recurse into $target_dir/$recurse, not a directory");
         }
     }
 }
