@@ -96,11 +96,8 @@ subtest 'modifications in two repos, merge' => sub {
     ok( !-e "$repo2/.testfile", 'updated file is still not there' );
 
     $output = `HOME=$home2 perl $repo2/bin/dfm mi --merge 2> /dev/null`;
-    like(
-        $output,
-        qr/Merge made by recursive/,
-        'git merge info message seen'
-    );
+    like( $output, qr/merge made.*recursive/i,
+        'git merge info message seen' );
     ok( -e "$repo2/.testfile", 'updated file is there' );
     ok( -l "$home2/.testfile", 'updated file is installed' );
 
