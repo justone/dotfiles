@@ -135,6 +135,25 @@ subtest 'switch to recursion' => sub {
     ok( -l "$home/bin/dfm", 'dfm is a symlink' );
 };
 
+subtest 'parallel recursions work' => sub {
+    my ( $home, $repo, $origin );
+    ( $home, $repo, $origin )
+        = minimum_home( 'parallel_recursions',
+        { dfminstall_contents => "test1 recurse\ntest2 recurse" } );
+
+    `mkdir -p $repo/test1`;
+    `touch $repo/test1/file1`;
+    `mkdir -p $repo/test2`;
+    `touch $repo/test2/file2`;
+
+    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+
+    ok( -d "$home/test1",       'first directory present' );
+    ok( -l "$home/test1/file1", 'first file is symlink' );
+    ok( -d "$home/test2",       'second directory present' );
+    ok( -l "$home/test2/file2", 'second file is symlink' );
+};
+
 done_testing;
 
 sub check_ssh_recurse {
