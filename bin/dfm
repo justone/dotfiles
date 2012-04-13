@@ -130,6 +130,11 @@ sub get_branch_remote {
 
     DEBUG("remote for branch $branch: $branch_remote");
 
+    if($branch_remote eq "") {
+        WARN("no remote found for branch $branch");
+        exit(-1);
+    }
+
     return $branch_remote;
 }
 
@@ -159,11 +164,6 @@ sub fetch_updates {
     my $current_branch = get_current_branch();
     my $current_branch_remote = get_branch_remote($current_branch);
 
-    if($current_branch_remote eq "") {
-	WARN("no remote found for current branch ($current_branch)");
-	exit(-1);
-    }
-
     print get_changes("$current_branch..$current_branch_remote/$current_branch"), "\n";
 }
 
@@ -173,14 +173,15 @@ sub merge_and_install {
     chdir( $home . '/' . $repo_dir );
 
     my $current_branch = get_current_branch();
+    my $current_branch_remote = get_branch_remote($current_branch);
 
     my $sync_command = $opts->{'rebase'} ? 'rebase' : 'merge';
 
-    if ( get_changes("$current_branch..origin/$current_branch") ) {
+    if ( get_changes("$current_branch..$current_branch_remote/$current_branch") ) {
 
         # check for local commits
         if ( my $local_changes
-            = get_changes("origin/$current_branch..$current_branch") )
+            = get_changes("$current_branch_remote/$current_branch..$current_branch") )
         {
 
             # if a decision wasn't made about how to deal with local commits
@@ -194,7 +195,7 @@ sub merge_and_install {
         }
 
         INFO("using $sync_command to bring in changes");
-        system("git $sync_command origin/$current_branch")
+        system("git $sync_command $current_branch_remote/$current_branch")
             if !$opts->{'dry-run'};
 
         INFO("re-installing dotfiles");
@@ -556,7 +557,7 @@ this in .dfminstall:
 
 =item dfm updates [--no-fetch]
 
-This fetches any changes from the origin remote and then shows a shortlog of
+This fetches any changes from the upstream remote and then shows a shortlog of
 what updates would come in if merged into the current branch.  Use '--no-fetch'
 to skip the fetch and just show what's new.
 
