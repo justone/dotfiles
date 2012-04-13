@@ -123,6 +123,16 @@ sub get_current_branch {
     return $current_branch;
 }
 
+sub get_branch_remote {
+    my $branch = shift;
+    my $branch_remote = `git config branch.$branch.remote`;
+    chomp $branch_remote;
+
+    DEBUG("remote for branch $branch: $branch_remote");
+
+    return $branch_remote;
+}
+
 # a few log4perl-alikes
 sub WARN {
     printf "WARN: %s\n", shift;
@@ -147,8 +157,14 @@ sub fetch_updates {
     }
 
     my $current_branch = get_current_branch();
+    my $current_branch_remote = get_branch_remote($current_branch);
 
-    print get_changes("$current_branch..origin/$current_branch"), "\n";
+    if($current_branch_remote eq "") {
+	WARN("no remote found for current branch ($current_branch)");
+	exit(-1);
+    }
+
+    print get_changes("$current_branch..$current_branch_remote/$current_branch"), "\n";
 }
 
 sub merge_and_install {
