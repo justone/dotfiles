@@ -11,6 +11,8 @@ my $version = '0.5';
 check_minimum_test_more_version();
 
 subtest 'help works on all subcommands' => sub {
+    focus('help');
+
     my ( $home, $repo ) = minimum_home('help');
 
     foreach my $command (qw(install mergeandinstall updates)) {
@@ -25,6 +27,8 @@ subtest 'help works on all subcommands' => sub {
 };
 
 subtest 'version commandline flag' => sub {
+    focus('version');
+
     my ( $home, $repo ) = minimum_home('version');
 
     my $output = `HOME=$home perl $repo/bin/dfm --version`;

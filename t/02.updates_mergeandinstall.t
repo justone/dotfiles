@@ -14,6 +14,8 @@ check_minimum_test_more_version();
 my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
 subtest 'updates and mergeandinstall' => sub {
+    focus('up_mi');
+
     my ( $home, $repo, $origin ) = minimum_home('host1');
     my ( $home2, $repo2 ) = minimum_home( 'host2', { origin => $origin } );
 
@@ -41,6 +43,8 @@ subtest 'updates and mergeandinstall' => sub {
 };
 
 subtest 'modifications in two repos, rebase' => sub {
+    focus('rebase');
+
     my ( $home, $repo, $origin ) = minimum_home('host1_rebase');
     my ( $home2, $repo2 )
         = minimum_home( 'host2_rebase', { origin => $origin } );
@@ -77,6 +81,8 @@ subtest 'modifications in two repos, rebase' => sub {
 };
 
 subtest 'modifications in two repos, merge' => sub {
+    focus('merge');
+
     my ( $home, $repo, $origin ) = minimum_home('host1_merge');
     my ( $home2, $repo2 )
         = minimum_home( 'host2_merge', { origin => $origin } );
@@ -110,6 +116,8 @@ subtest 'modifications in two repos, merge' => sub {
 };
 
 subtest 'umi' => sub {
+    focus('umi');
+
     my ( $home, $repo, $origin ) = minimum_home('host1');
     my ( $home2, $repo2 ) = minimum_home( 'host2', { origin => $origin } );
 
@@ -125,6 +133,8 @@ subtest 'umi' => sub {
 };
 
 subtest 'non origin remote' => sub {
+    focus('non_origin');
+
     my ( $home,  $repo,  $origin )  = minimum_home('host1');
     my ( $home2, $repo2, $origin2 ) = minimum_home('host2');
 
@@ -151,6 +161,8 @@ subtest 'non origin remote' => sub {
 };
 
 subtest 'non origin remote different name' => sub {
+    focus('non_origin_diff_name');
+
     my ( $home,  $repo,  $origin )  = minimum_home('host1');
     my ( $home2, $repo2, $origin2 ) = minimum_home('host2');
 
@@ -178,6 +190,8 @@ subtest 'non origin remote different name' => sub {
 };
 
 subtest 'check remote branch' => sub {
+    focus('check_remote');
+
     my ( $home, $repo, $origin ) = minimum_home('host1');
 
     # first, make a personal branch in repo 1, and add a new file

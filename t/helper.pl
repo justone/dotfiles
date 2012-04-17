@@ -81,4 +81,11 @@ sub check_minimum_test_more_version {
         plan skip_all => 'Test::More version 0.98 required';
     }
 }
+
+sub focus {
+    my $name = shift;
+    if ( defined $ENV{DFM_TEST} && $ENV{DFM_TEST} ne $name ) {
+        plan skip_all => "focus on tests ($name)";
+    }
+}
 1;

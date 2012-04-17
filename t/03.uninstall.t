@@ -14,6 +14,8 @@ check_minimum_test_more_version();
 my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
 subtest 'uninstall dotfiles' => sub {
+    focus('uninstall');
+
     my ( $home, $repo ) = minimum_home_with_ssh('uninstall');
     extra_setup($home);
 
@@ -44,6 +46,8 @@ SKIP: {
 };
 
 subtest 'uninstall dotfiles (dry-run)' => sub {
+    focus('uninstall_dry');
+
     my ( $home, $repo ) = minimum_home_with_ssh('uninstall');
     extra_setup($home);
 

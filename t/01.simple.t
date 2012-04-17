@@ -14,6 +14,8 @@ check_minimum_test_more_version();
 my $profile_filename = ( lc($OSNAME) eq 'darwin' ) ? '.profile' : '.bashrc';
 
 subtest 'simplest' => sub {
+    focus('simplest');
+
     my ( $home, $repo, $origin );
     ( $home, $repo, $origin ) = minimum_home('simple');
     ( $home, $repo ) = minimum_home( 'simple2', { origin => $origin } );
@@ -38,6 +40,8 @@ SKIP: {
 };
 
 subtest 'dangling symlinks' => sub {
+    focus('dangling');
+
     my ( $home, $repo ) = minimum_home_with_ssh('dangling');
 
     symlink( ".dotfiles/.other",         "$home/.other" );
@@ -50,6 +54,7 @@ subtest 'dangling symlinks' => sub {
 };
 
 subtest 'with . ssh recurse( no . ssh dir )' => sub {
+    focus('recurse_no');
 
     my ( $home, $repo ) = minimum_home_with_ssh( 'ssh_no', 1 );
     my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
@@ -58,6 +63,7 @@ subtest 'with . ssh recurse( no . ssh dir )' => sub {
 };
 
 subtest 'with .ssh recurse (with .ssh dir)' => sub {
+    focus('recurse_with');
 
     my ( $home, $repo ) = minimum_home_with_ssh('ssh_with');
     my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
@@ -66,6 +72,8 @@ subtest 'with .ssh recurse (with .ssh dir)' => sub {
 };
 
 subtest 'with bin recurse' => sub {
+    focus('bin_recurse');
+
     my ( $home, $repo, $origin );
     ( $home, $repo, $origin )
         = minimum_home( 'bin_recurse', { dfminstall_contents => 'bin' } );
@@ -83,6 +91,8 @@ subtest 'with bin recurse' => sub {
 };
 
 subtest 'check deprecated recursion' => sub {
+    focus('deprec');
+
     my ( $home, $repo );
 
     ( $home, $repo )
@@ -116,6 +126,8 @@ subtest 'check deprecated recursion' => sub {
 };
 
 subtest 'switch to recursion' => sub {
+    focus('rec_switch');
+
     my ( $home, $repo, $origin );
     ( $home, $repo, $origin ) = minimum_home('switch_recurse');
 
@@ -136,6 +148,8 @@ subtest 'switch to recursion' => sub {
 };
 
 subtest 'parallel recursions work' => sub {
+    focus('parallel_rec');
+
     my ( $home, $repo, $origin );
     ( $home, $repo, $origin )
         = minimum_home( 'parallel_recursions',
