@@ -124,13 +124,13 @@ sub get_current_branch {
 }
 
 sub get_branch_remote {
-    my $branch = shift;
+    my $branch        = shift;
     my $branch_remote = `git config branch.$branch.remote`;
     chomp $branch_remote;
 
     DEBUG("remote for branch $branch: $branch_remote");
 
-    if($branch_remote eq "") {
+    if ( $branch_remote eq "" ) {
         WARN("no remote found for branch $branch");
         exit(-1);
     }
@@ -318,7 +318,8 @@ sub install_files {
             install_files( "$source_dir/$recurse", "$target_dir/$recurse" );
         }
         else {
-            WARN("couldn't recurse into $source_dir/$recurse, not a directory");
+            WARN("couldn't recurse into $source_dir/$recurse, not a directory"
+            );
         }
     }
 }
@@ -398,7 +399,8 @@ sub uninstall_files {
             uninstall_files( "$source_dir/$recurse", "$target_dir/$recurse" );
         }
         else {
-            WARN("couldn't recurse into $target_dir/$recurse, not a directory");
+            WARN("couldn't recurse into $target_dir/$recurse, not a directory"
+            );
         }
     }
 }
