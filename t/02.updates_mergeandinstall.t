@@ -124,7 +124,7 @@ subtest 'umi' => sub {
     ok( -l "$home2/.testfile", 'updated file is installed' );
 };
 
-subtest 'non_origin_remote' => sub {
+subtest 'non origin remote' => sub {
     my ( $home,  $repo,  $origin )  = minimum_home('host1');
     my ( $home2, $repo2, $origin2 ) = minimum_home('host2');
 
@@ -148,6 +148,57 @@ subtest 'non_origin_remote' => sub {
     # from the non-origin upstream
     my $output = `HOME=$home2 perl $repo2/bin/dfm updates 2> /dev/null`;
     like( $output, qr/adding testfile2/, 'message in output' );
+};
+
+subtest 'non origin remote different name' => sub {
+    my ( $home,  $repo,  $origin )  = minimum_home('host1');
+    my ( $home2, $repo2, $origin2 ) = minimum_home('host2');
+
+    # first, make a personal branch in repo 1, and add a new file
+    `HOME=$home perl $repo/bin/dfm checkout -b personal`;
+    add_file( $home, $repo, 'testfile' );
+    `HOME=$home perl $repo/bin/dfm push origin personal 2> /dev/null`;
+
+    # on the second host, add the first as a remote
+    # and install from the personal branch
+    `HOME=$home2 perl $repo2/bin/dfm remote add upstream $origin`;
+    `HOME=$home2 perl $repo2/bin/dfm fetch upstream`;
+    `HOME=$home2 perl $repo2/bin/dfm checkout -b business upstream/personal`;
+    `HOME=$home2 perl $repo2/bin/dfm install`;
+
+    # next, make a change in the first, on the personal branch
+    add_file( $home, $repo, 'testfile2', 'contents2' );
+    `HOME=$home perl $repo/bin/dfm push origin personal 2> /dev/null`;
+
+    # and finally, run updates to make sure we can pull
+    # from the non-origin upstream
+    my $output = `HOME=$home2 perl $repo2/bin/dfm updates 2> /dev/null`;
+    diag($output);
+    like( $output, qr/adding testfile2/, 'message in output' );
+};
+
+subtest 'check remote branch' => sub {
+    my ( $home, $repo, $origin ) = minimum_home('host1');
+
+    # first, make a personal branch in repo 1, and add a new file
+    `HOME=$home perl $repo/bin/dfm checkout -b personal`;
+    my $output = `HOME=$home perl $repo/bin/dfm updates 2> /dev/null`;
+
+    ok( $? >> 8 > 0, 'updates throws non-zero exit code' );
+    like(
+        $output,
+        qr/no remote found for branch personal/,
+        '"no remote" message in output'
+    );
+
+    $output = `HOME=$home perl $repo/bin/dfm mergeandinstall 2> /dev/null`;
+
+    ok( $? >> 8 > 0, 'mergeandinstall throws non-zero exit code' );
+    like(
+        $output,
+        qr/no remote found for branch personal/,
+        '"no remote" message in output'
+    );
 };
 
 done_testing;
