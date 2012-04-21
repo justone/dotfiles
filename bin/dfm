@@ -318,7 +318,8 @@ sub install_files {
             install_files( "$source_dir/$recurse", "$target_dir/$recurse" );
         }
         else {
-            WARN("couldn't recurse into $source_dir/$recurse, not a directory"
+            WARN(
+                "couldn't recurse into $source_dir/$recurse, not a directory"
             );
         }
     }
@@ -399,7 +400,8 @@ sub uninstall_files {
             uninstall_files( "$source_dir/$recurse", "$target_dir/$recurse" );
         }
         else {
-            WARN("couldn't recurse into $target_dir/$recurse, not a directory"
+            WARN(
+                "couldn't recurse into $target_dir/$recurse, not a directory"
             );
         }
     }
