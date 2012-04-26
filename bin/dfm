@@ -235,6 +235,8 @@ sub install_files {
     # build up skip list
     my $skip_files = { map { $_ => 1 } @$initial_skips };
     my $recurse_files = [];
+    my $execute_files = [];
+
     if ( -e "$source_dir/.dfminstall" ) {
         open( my $skip_fh, '<', "$source_dir/.dfminstall" );
         foreach my $line (<$skip_fh>) {
@@ -254,6 +256,9 @@ sub install_files {
                 elsif ( $option eq 'recurse' ) {
                     push( @$recurse_files, $filename );
                     $skip_files->{$filename} = 1;
+                }
+                elsif ( $option eq 'exec' ) {
+                    push( @$execute_files, $filename );
                 }
             }
         }
@@ -323,6 +328,15 @@ sub install_files {
             WARN(
                 "couldn't recurse into $source_dir/$recurse, not a directory"
             );
+        }
+    }
+    
+    foreach my $execute (@$execute_files) {
+        if ( -x "$source_dir/$execute" ) {
+            system("$source_dir/$execute");
+        }elsif( -O "$source_dir/$execute" ){
+            system("chmod +x $source_dir/$execute");
+            system("$source_dir/$execute");
         }
     }
 }
