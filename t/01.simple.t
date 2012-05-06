@@ -19,6 +19,8 @@ subtest 'simplest' => sub {
     my ( $home, $repo, $origin );
     ( $home, $repo, $origin ) = minimum_home('simple');
     ( $home, $repo ) = minimum_home( 'simple2', { origin => $origin } );
+    `touch $repo/.bashrc.load`;    # make sure there's a loader
+
     my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
 
     ok( -d "$home/.backup",      'main backup dir exists' );
@@ -57,6 +59,7 @@ subtest 'with . ssh recurse( no . ssh dir )' => sub {
     focus('recurse_no');
 
     my ( $home, $repo ) = minimum_home_with_ssh( 'ssh_no', 1 );
+    `touch $repo/.bashrc.load`;    # make sure there's a loader
     my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
 
     check_ssh_recurse($home);
@@ -66,6 +69,7 @@ subtest 'with .ssh recurse (with .ssh dir)' => sub {
     focus('recurse_with');
 
     my ( $home, $repo ) = minimum_home_with_ssh('ssh_with');
+    `touch $repo/.bashrc.load`;    # make sure there's a loader
     my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
 
     check_ssh_recurse($home);

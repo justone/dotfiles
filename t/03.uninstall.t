@@ -17,6 +17,7 @@ subtest 'uninstall dotfiles' => sub {
     focus('uninstall');
 
     my ( $home, $repo ) = minimum_home_with_ssh('uninstall');
+    `touch $repo/.bashrc.load`;    # make sure there's a loader
     extra_setup($home);
 
     my $output;
@@ -25,6 +26,13 @@ subtest 'uninstall dotfiles' => sub {
 
     ok( -d "$home/.backup", 'main backup dir exists' );
     ok( -l "$home/bin",     'bin is a symlink' );
+
+SKIP: {
+        skip 'File::Slurp not found', 1 unless $file_slurp_available;
+
+        ok( read_file("$home/$profile_filename") =~ /bashrc.load/,
+            "loader present in $profile_filename" );
+    }
 
     $output = `HOME=$home perl $repo/bin/dfm --verbose uninstall`;
 
@@ -49,6 +57,7 @@ subtest 'uninstall dotfiles (dry-run)' => sub {
     focus('uninstall_dry');
 
     my ( $home, $repo ) = minimum_home_with_ssh('uninstall');
+    `touch $repo/.bashrc.load`;    # make sure there's a loader
     extra_setup($home);
 
     my $output;
@@ -57,6 +66,13 @@ subtest 'uninstall dotfiles (dry-run)' => sub {
 
     ok( -d "$home/.backup", 'main backup dir exists' );
     ok( -l "$home/bin",     'bin is a symlink' );
+
+SKIP: {
+        skip 'File::Slurp not found', 1 unless $file_slurp_available;
+
+        ok( read_file("$home/$profile_filename") =~ /bashrc.load/,
+            "loader present in $profile_filename" );
+    }
 
     $output = `HOME=$home perl $repo/bin/dfm --dry-run --verbose uninstall`;
 

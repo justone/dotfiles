@@ -65,7 +65,9 @@ if ( $command eq 'install' ) {
     install_files( $home . '/' . $repo_dir, $home );
 
     # link in the bash loader
-    configure_bash_loader();
+    if ( -e "$home/$repo_dir/.bashrc.load" ) {
+        configure_bash_loader();
+    }
 }
 elsif ( $command eq 'updates' ) {
     GetOptions( \%opts, 'no-fetch' );
