@@ -335,7 +335,7 @@ sub install_files {
         if ( -x "$source_dir/$execute" ) {
             system("$source_dir/$execute");
         }
-        elsif ( -O "$source_dir/$execute" ) {
+        elsif ( -o "$source_dir/$execute" ) {
             system("chmod +x $source_dir/$execute");
             system("$source_dir/$execute");
         }
