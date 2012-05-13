@@ -233,7 +233,7 @@ sub install_files {
     chdir($target_dir);
 
     # build up skip list
-    my $skip_files = { map { $_ => 1 } @$initial_skips };
+    my $skip_files    = { map { $_ => 1 } @$initial_skips };
     my $recurse_files = [];
     my $execute_files = [];
 
@@ -330,11 +330,12 @@ sub install_files {
             );
         }
     }
-    
+
     foreach my $execute (@$execute_files) {
         if ( -x "$source_dir/$execute" ) {
             system("$source_dir/$execute");
-        }elsif( -O "$source_dir/$execute" ){
+        }
+        elsif ( -O "$source_dir/$execute" ) {
             system("chmod +x $source_dir/$execute");
             system("$source_dir/$execute");
         }
