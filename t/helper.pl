@@ -12,23 +12,23 @@ sub simple_repo {
     $dfminstall_contents ||= '';
 
     # clean up
-    `rm -rf $repo`;
-    `rm -rf $repo.git`;
+    `rm -rf '$repo'`;
+    `rm -rf '$repo.git'`;
 
-    `mkdir -p $repo/bin`;
-    `echo "$dfminstall_contents\nREADME.md skip\nt skip" > $repo/.dfminstall`;
-    `mkdir -p $repo/t`;
-    `echo "ignore" > $repo/.gitignore`;
-    `echo "readme contents" > $repo/README.md`;
-    `cp $Bin/../bin/dfm $repo/bin`;
+    `mkdir -p '$repo/bin'`;
+    `echo "$dfminstall_contents\nREADME.md skip\nt skip" > '$repo/.dfminstall'`;
+    `mkdir -p '$repo/t'`;
+    `echo "ignore" > '$repo/.gitignore'`;
+    `echo "readme contents" > '$repo/README.md'`;
+    `cp $Bin/../bin/dfm '$repo/bin'`;
 
     chdir($repo);
     `git init`;
     `git add .`;
     `git commit -m 'initial commit'`;
     chdir($Bin);
-    `git clone --bare $repo $repo.git`;
-    `rm -rf $repo`;
+    `git clone --bare '$repo' '$repo.git'`;
+    `rm -rf '$repo'`;
 
     return "$repo.git";
 }
@@ -42,12 +42,12 @@ sub minimum_home {
     my $repo = "$home/.dotfiles";
 
     # clear out old test area
-    `rm -rf $home`;
+    `rm -rf '$home'`;
 
     # create homedir
-    `mkdir -p $home`;
+    `mkdir -p '$home'`;
 
-    `git clone file://$origin_repo_path $repo`;
+    `git clone 'file://$origin_repo_path' '$repo'`;
 
     return ( $home, $repo, $origin_repo_path );
 }
@@ -58,13 +58,13 @@ sub minimum_home_with_ssh {
 
     my ( $home, $repo ) = minimum_home($name);
 
-    `mkdir -p $home/.ssh` if !$skip_home_ssh_dir;
+    `mkdir -p '$home/.ssh'` if !$skip_home_ssh_dir;
 
     # create repo and copy in dfm
-    `echo ".ssh" >> $repo/.dfminstall`;
-    `mkdir -p $repo/.ssh`;
-    `mkdir -p $repo/.ssh/config`;
-    `echo "sshignore" > $repo/.ssh/.gitignore`;
+    `echo ".ssh" >> '$repo/.dfminstall'`;
+    `mkdir -p '$repo/.ssh'`;
+    `mkdir -p '$repo/.ssh/config'`;
+    `echo "sshignore" > '$repo/.ssh/.gitignore'`;
 
     return ( $home, $repo );
 }

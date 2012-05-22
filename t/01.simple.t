@@ -177,22 +177,22 @@ subtest 'exec option' => sub {
 
     my ( $home, $repo, $origin );
     ( $home, $repo, $origin ) = minimum_home(
-        'exec_option',
+        'exec option',
         {   dfminstall_contents =>
                 "script1.sh exec\nscript1.sh skip\ntest2 recurse"
         }
     );
 
     # set up non-recurse script that needs to be set executable
-    `echo "#!/bin/sh\n\necho 'message1';\ntouch testfile" > $repo/script1.sh`;
+    `echo "#!/bin/sh\n\necho 'message1';\ntouch testfile" > '$repo/script1.sh'`;
 
     # set up recurse script that is already executable
-    `mkdir -p $repo/test2`;
-    `echo "script2.sh exec" > $repo/test2/.dfminstall`;
-    `echo "#!/bin/sh\n\necho 'message2';\ntouch testfile2" > $repo/test2/script2.sh`;
-    `chmod +x $repo/test2/script2.sh`;
+    `mkdir -p '$repo/test2'`;
+    `echo "script2.sh exec" > '$repo/test2/.dfminstall'`;
+    `echo "#!/bin/sh\n\necho 'message2';\ntouch testfile2" > '$repo/test2/script2.sh'`;
+    `chmod +x '$repo/test2/script2.sh'`;
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
 
     like( $output, qr/message1/, 'output contains output from script1' );
     ok( -e "$home/testfile",    'file created by script1 exists' );
@@ -218,6 +218,21 @@ subtest 'switch to skip' => sub {
 
     $output = `HOME=$home perl $repo/bin/dfm --verbose`;
     ok( !-e "$home/bin", 'bin directory is not symlinked' );
+};
+
+subtest 'spaces in username' => sub {
+    focus('spaces_in_username');
+
+    my ( $home, $repo, $origin );
+    ( $home, $repo, $origin ) = minimum_home('user name');
+
+    `mkdir '$home/bin'`;
+    `touch '$home/bin/old'`;
+
+    my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+
+    ok( -l "$home/bin",             'bin is symlinked' );
+    ok( -e "$home/.backup/bin/old", 'old files are in backup' );
 };
 
 done_testing;

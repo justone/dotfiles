@@ -199,7 +199,7 @@ sub merge_and_install {
             if !$opts->{'dry-run'};
 
         INFO("re-installing dotfiles");
-        system("HOME=$home $self_dfm install") if !$opts->{'dry-run'};
+        system("HOME='$home' '$self_dfm' install") if !$opts->{'dry-run'};
     }
     else {
         INFO("no changes to merge");
@@ -302,7 +302,7 @@ sub install_files {
         if ( !-l $direntry ) {
             if ( -e $direntry ) {
                 INFO("  Backing up $direntry.");
-                system("mv $direntry $backup_dir/$direntry")
+                system("mv '$direntry' '$backup_dir/$direntry'")
                     if !$opts{'dry-run'};
             }
             INFO("  Symlinking $direntry ($symlink_base/$direntry).");
@@ -338,13 +338,13 @@ sub install_files {
 
         if ( -x "$source_dir/$execute" ) {
             DEBUG("Executing $source_dir/$execute in $cwd");
-            system("$source_dir/$execute");
+            system("'$source_dir/$execute'");
         }
         elsif ( -o "$source_dir/$execute" ) {
-            system("chmod +x $source_dir/$execute");
+            system("chmod +x '$source_dir/$execute'");
 
             DEBUG("Executing $source_dir/$execute in $cwd");
-            system("$source_dir/$execute");
+            system("'$source_dir/$execute'");
         }
     }
 
