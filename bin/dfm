@@ -372,6 +372,7 @@ sub install_files {
         my $new_perms = $chmod_files->{$chmod_file};
 
         # TODO maybe skip if perms are already ok
+        DEBUG("Setting permissions on $chmod_file to $new_perms");
         chmod oct($new_perms), $chmod_file;
     }
 
