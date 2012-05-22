@@ -4,6 +4,7 @@ use Test::More;
 use strict;
 use FindBin qw($Bin);
 use English qw( -no_match_vars );
+use Fcntl ':mode';
 
 require "$Bin/helper.pl";
 
@@ -233,6 +234,55 @@ subtest 'spaces in username' => sub {
 
     ok( -l "$home/bin",             'bin is symlinked' );
     ok( -e "$home/.backup/bin/old", 'old files are in backup' );
+};
+
+subtest 'chmod option' => sub {
+    focus('chmod_option');
+
+    my ( $home, $repo, $origin );
+    ( $home, $repo, $origin ) = minimum_home('chmod_option');
+
+    `echo ".ssh recurse" >> $repo/.dfminstall`;
+    `mkdir -p $repo/.ssh`;
+    `touch $repo/.ssh/config`;
+    `chmod 0644 $repo/.ssh/config`;
+    `echo "config chmod 0600" > $repo/.ssh/.dfminstall`;
+
+    is( ( sprintf "%04o", S_IMODE( ( stat("$repo/.ssh/config") )[2] ) ),
+        '0644', 'permissions before are correct' );
+
+    my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+
+    is( ( sprintf "%04o", S_IMODE( ( stat("$repo/.ssh/config") )[2] ) ),
+        '0600', 'permissions after are correct' );
+
+    subtest 'no mode' => sub {
+        `chmod 0644 $repo/.ssh/config`;
+
+        `echo "config chmod" > $repo/.ssh/.dfminstall`;
+
+        my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+
+        like(
+            $output,
+            qr/chmod option requires a mode/,
+            'error message in output'
+        );
+        is( ( sprintf "%04o", S_IMODE( ( stat("$repo/.ssh/config") )[2] ) ),
+            '0644', 'permissions are untouched' );
+    };
+
+    subtest 'bad mode' => sub {
+        `chmod 0644 $repo/.ssh/config`;
+
+        `echo "config chmod himom" > $repo/.ssh/.dfminstall`;
+
+        my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+
+        like( $output, qr/bad mode 'himom'/, 'error message in output' );
+        is( ( sprintf "%04o", S_IMODE( ( stat("$repo/.ssh/config") )[2] ) ),
+            '0644', 'permissions are untouched' );
+    };
 };
 
 done_testing;

@@ -139,6 +139,10 @@ sub check_remote_branch {
 }
 
 # a few log4perl-alikes
+sub ERROR {
+    printf "ERROR: %s\n", shift;
+}
+
 sub WARN {
     printf "WARN: %s\n", shift;
 }
@@ -237,6 +241,7 @@ sub install_files {
     my $skip_files    = { map { $_ => 1 } @$initial_skips };
     my $recurse_files = [];
     my $execute_files = [];
+    my $chmod_files   = {};
 
     if ( -e "$source_dir/.dfminstall" ) {
         open( my $skip_fh, '<', "$source_dir/.dfminstall" );
@@ -261,6 +266,21 @@ sub install_files {
                 }
                 elsif ( $options[0] eq 'exec' ) {
                     push( @$execute_files, $filename );
+                }
+                elsif ( $options[0] eq 'chmod' ) {
+                    if ( !$options[1] ) {
+                        ERROR(
+                            "chmod option requires a mode (e.g. 0600) in $source_dir/.dfminstall"
+                        );
+                        exit 1;
+                    }
+                    if ( $options[1] !~ /^[0-7]{4}$/ ) {
+                        ERROR(
+                            "bad mode '$options[1]' (should be 4 digit octal, like 0600) in $source_dir/.dfminstall"
+                        );
+                        exit 1;
+                    }
+                    $chmod_files->{$filename} = $options[1];
                 }
             }
         }
@@ -346,6 +366,13 @@ sub install_files {
             DEBUG("Executing $source_dir/$execute in $cwd");
             system("'$source_dir/$execute'");
         }
+    }
+
+    foreach my $chmod_file ( keys %$chmod_files ) {
+        my $new_perms = $chmod_files->{$chmod_file};
+
+        # TODO maybe skip if perms are already ok
+        chmod oct($new_perms), $chmod_file;
     }
 
     # restore previous working directory
