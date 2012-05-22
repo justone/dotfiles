@@ -6,7 +6,7 @@ use English qw( -no_match_vars );    # Avoids regex performance penalty
 use Data::Dumper;
 use FindBin qw($RealBin);
 use Getopt::Long;
-use Cwd qw(realpath);
+use Cwd qw(realpath getcwd);
 use File::Spec;
 
 our $VERSION = '0.5';
@@ -230,6 +230,7 @@ sub install_files {
     my $backup_dir = $target_dir . '/.backup';
     DEBUG("Backup dir: $backup_dir");
 
+    my $cwd_before_install = getcwd();
     chdir($target_dir);
 
     # build up skip list
@@ -242,22 +243,23 @@ sub install_files {
         foreach my $line (<$skip_fh>) {
             chomp($line);
             if ( length($line) ) {
-                my ( $filename, $option ) = split( q{ }, $line );
-                if ( !defined $option ) {
+                my ( $filename, @options ) = split( q{ }, $line );
+                DEBUG(".dfminstall file $filename has @options");
+                if ( !defined $options[0] ) {
                     WARN(
                         "using implied recursion in .dfminstall is deprecated, change '$filename' to '$filename recurse' in $source_dir/.dfminstall."
                     );
                     push( @$recurse_files, $filename );
                     $skip_files->{$filename} = 1;
                 }
-                elsif ( $option eq 'skip' ) {
+                elsif ( $options[0] eq 'skip' ) {
                     $skip_files->{$filename} = 1;
                 }
-                elsif ( $option eq 'recurse' ) {
+                elsif ( $options[0] eq 'recurse' ) {
                     push( @$recurse_files, $filename );
                     $skip_files->{$filename} = 1;
                 }
-                elsif ( $option eq 'exec' ) {
+                elsif ( $options[0] eq 'exec' ) {
                     push( @$execute_files, $filename );
                 }
             }
@@ -332,14 +334,22 @@ sub install_files {
     }
 
     foreach my $execute (@$execute_files) {
+        my $cwd = getcwd();
+
         if ( -x "$source_dir/$execute" ) {
+            DEBUG("Executing $source_dir/$execute in $cwd");
             system("$source_dir/$execute");
         }
         elsif ( -o "$source_dir/$execute" ) {
             system("chmod +x $source_dir/$execute");
+
+            DEBUG("Executing $source_dir/$execute in $cwd");
             system("$source_dir/$execute");
         }
     }
+
+    # restore previous working directory
+    chdir($cwd_before_install);
 }
 
 sub configure_bash_loader {
