@@ -204,6 +204,22 @@ subtest 'exec option' => sub {
     ok( -x "$repo/test2/script2.sh", 'script2 file is executable' );
 };
 
+subtest 'switch to skip' => sub {
+    focus('switch_to_skip');
+
+    my ( $home, $repo, $origin );
+    ( $home, $repo, $origin ) = minimum_home('switch_to_skip');
+
+    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    ok( -l "$home/bin", 'bin is symlinked' );
+
+    # now add skip
+    `echo "bin skip" >> $repo/.dfminstall`;
+
+    $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    ok( !-e "$home/bin", 'bin directory is not symlinked' );
+};
+
 done_testing;
 
 sub check_ssh_recurse {

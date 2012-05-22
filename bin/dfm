@@ -311,7 +311,7 @@ sub install_files {
         }
     }
 
-    cleanup_dangling_symlinks( $source_dir, $target_dir );
+    cleanup_dangling_symlinks( $source_dir, $target_dir, $skip_files );
 
     foreach my $recurse (@$recurse_files) {
         if ( -d "$source_dir/$recurse" ) {
@@ -435,7 +435,8 @@ sub uninstall_files {
 }
 
 sub cleanup_dangling_symlinks {
-    my ( $source_dir, $target_dir ) = @_;
+    my ( $source_dir, $target_dir, $skip_files ) = @_;
+    $skip_files ||= {};
 
     DEBUG(" Cleaning up dangling symlinks in $target_dir");
 
@@ -444,7 +445,9 @@ sub cleanup_dangling_symlinks {
     foreach my $direntry ( readdir($dirh) ) {
 
         DEBUG(" Working on $direntry");
-        if ( -l $direntry && !-e $direntry ) {
+
+        # if symlink is dangling or is now skipped
+        if ( -l $direntry && ( !-e $direntry || $skip_files->{$direntry} ) ) {
             my $link_target = readlink($direntry);
             DEBUG("$direntry points at $link_target");
             my ( $volume, @elements ) = File::Spec->splitpath($link_target);
