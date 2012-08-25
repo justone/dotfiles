@@ -1,4 +1,5 @@
 script: "prove -v t"
+install: "/bin/true"
 language: perl
 perl:
   - "5.10"
