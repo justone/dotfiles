@@ -1,3 +1,5 @@
+[![Build Status](https://secure.travis-ci.org/justone/dotfiles.png?branch=master)](http://travis-ci.org/justone/dotfiles/)
+
 # Dotfiles
 
 ## Overview
