@@ -5,6 +5,15 @@ use warnings;
 use FindBin qw($Bin);
 use Test::More;
 
+BEGIN {
+
+    package DFM;
+    require "bin/dfm";
+    die $@ if $@;
+}
+
+ok defined &DFM::run_dfm, 'DFM::run_dfm is defined';
+
 sub simple_repo {
     my ( $name, $dfminstall_contents ) = @_;
 
@@ -88,4 +97,13 @@ sub focus {
         plan skip_all => "focus on tests ($name)";
     }
 }
+
+sub run_dfm {
+    my ( $home, $repo, @args ) = @_;
+    trap {
+        $ENV{HOME} = $home;
+        DFM::run_dfm( "$repo/bin", @args );
+    };
+}
+
 1;

@@ -5,6 +5,8 @@ use strict;
 use FindBin qw($Bin);
 use English qw( -no_match_vars );
 
+use Test::Trap qw/ :output(systemsafe) /;
+
 require "$Bin/helper.pl";
 
 my $file_slurp_available = load_mod('File::Slurp qw(read_file)');
@@ -21,23 +23,24 @@ subtest 'updates and mergeandinstall' => sub {
 
     add_file_and_push( $home, $repo );
 
-    my $output;
+    run_dfm( $home2, $repo2, 'updates' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm updates 2> /dev/null`;
-    like( $output, qr/adding \.testfile/, 'message in output' );
+    like( $trap->stdout, qr/adding \.testfile/, 'message in output' );
     ok( !-e "$repo2/.testfile", 'updated file is not there' );
 
     # remove the origin repo, to make sure that --no-fetch
     # still works (because the updates are already local,
     # --no-fetch doesn't refetch)
     `rm -rf $origin`;
-    $output
-        = `HOME=$home2 perl $repo2/bin/dfm updates --no-fetch 2> /dev/null`;
-    like( $output, qr/adding \.testfile/, 'message in output' );
+
+    run_dfm( $home2, $repo2, 'updates', '--no-fetch' );
+
+    like( $trap->stdout, qr/adding \.testfile/, 'message in output' );
     ok( !-e "$repo2/.testfile", 'updated file is not there' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm mi 2> /dev/null`;
-    like( $output, qr/\.testfile/, 'message in output' );
+    run_dfm( $home2, $repo2, 'mi' );
+
+    like( $trap->stdout, qr/\.testfile/, 'message in output' );
     ok( -e "$repo2/.testfile", 'updated file is there' );
     ok( -l "$home2/.testfile", 'updated file is installed' );
 };
@@ -51,24 +54,24 @@ subtest 'spaces in username' => sub {
 
     add_file_and_push( $home, $repo );
 
-    my $output;
+    run_dfm( $home2, $repo2, 'updates' );
 
-    $output = `HOME='$home2' perl '$repo2/bin/dfm' updates 2> /dev/null`;
-
-    like( $output, qr/adding \.testfile/, 'message in output' );
+    like( $trap->stdout, qr/adding \.testfile/, 'message in output' );
     ok( !-e "$repo2/.testfile", 'updated file is not there' );
 
     # remove the origin repo, to make sure that --no-fetch
     # still works (because the updates are already local,
     # --no-fetch doesn't refetch)
     `rm -rf '$origin'`;
-    $output
-        = `HOME='$home2' perl '$repo2/bin/dfm' updates --no-fetch 2> /dev/null`;
-    like( $output, qr/adding \.testfile/, 'message in output' );
+
+    run_dfm( $home2, $repo2, 'updates', '--no-fetch' );
+
+    like( $trap->stdout, qr/adding \.testfile/, 'message in output' );
     ok( !-e "$repo2/.testfile", 'updated file is not there' );
 
-    $output = `HOME='$home2' perl '$repo2/bin/dfm' mi 2> /dev/null`;
-    like( $output, qr/\.testfile/, 'message in output' );
+    run_dfm( $home2, $repo2, 'mi' );
+
+    like( $trap->stdout, qr/\.testfile/, 'message in output' );
     ok( -e "$repo2/.testfile", 'updated file is there' );
     ok( -l "$home2/.testfile", 'updated file is installed' );
 };
@@ -83,29 +86,32 @@ subtest 'modifications in two repos, rebase' => sub {
     add_file_and_push( $home, $repo );
     add_file( $home2, $repo2, '.otherfile' );
 
-    my $output;
+    run_dfm( $home2, $repo2, 'updates' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm updates 2> /dev/null`;
-
-    like( $output, qr/adding \.testfile/, 'message in output' );
+    like( $trap->stdout, qr/adding \.testfile/, 'message in output' );
     ok( !-e "$repo2/.testfile", 'updated file is not there' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm mi 2> /dev/null`;
-    like( $output, qr/local changes detected/, 'conflict message in output' );
+    run_dfm( $home2, $repo2, 'mi' );
+    like(
+        $trap->stdout,
+        qr/local changes detected/,
+        'conflict message in output'
+    );
     ok( !-e "$repo2/.testfile", 'updated file is still not there' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm mi --rebase 2> /dev/null`;
+    run_dfm( $home2, $repo2, 'mi', '--rebase' );
+
     like(
-        $output,
+        $trap->stdout,
         qr/rewinding head to replay/,
         'git rebase info message seen'
     );
     ok( -e "$repo2/.testfile", 'updated file is there' );
     ok( -l "$home2/.testfile", 'updated file is installed' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm log 2> /dev/null`;
+    run_dfm( $home2, $repo2, 'log' );
     unlike(
-        $output,
+        $trap->stdout,
         qr/Merge remote-tracking branch 'origin\/master'/,
         'no git merge log message seen'
     );
@@ -121,26 +127,34 @@ subtest 'modifications in two repos, merge' => sub {
     add_file_and_push( $home, $repo );
     add_file( $home2, $repo2, '.otherfile' );
 
-    my $output;
+    run_dfm( $home2, $repo2, 'updates' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm updates 2> /dev/null`;
-
-    like( $output, qr/adding \.testfile/, 'message in output' );
+    like( $trap->stdout, qr/adding \.testfile/, 'message in output' );
     ok( !-e "$repo2/.testfile", 'updated file is not there' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm mi 2> /dev/null`;
-    like( $output, qr/local changes detected/, 'conflict message in output' );
+    run_dfm( $home2, $repo2, 'mi' );
+
+    like(
+        $trap->stdout,
+        qr/local changes detected/,
+        'conflict message in output'
+    );
     ok( !-e "$repo2/.testfile", 'updated file is still not there' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm mi --merge 2> /dev/null`;
-    like( $output, qr/merge made.*recursive/i,
-        'git merge info message seen' );
+    run_dfm( $home2, $repo2, 'mi', '--merge' );
+
+    like(
+        $trap->stdout,
+        qr/merge made.*recursive/i,
+        'git merge info message seen'
+    );
     ok( -e "$repo2/.testfile", 'updated file is there' );
     ok( -l "$home2/.testfile", 'updated file is installed' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm log 2> /dev/null`;
+    run_dfm( $home2, $repo2, 'log' );
+
     like(
-        $output,
+        $trap->stdout,
         qr/Merge remote(-tracking)? branch 'origin\/master'/,
         'git merge log message seen'
     );
@@ -154,11 +168,10 @@ subtest 'umi' => sub {
 
     add_file_and_push( $home, $repo );
 
-    my $output;
+    run_dfm( $home2, $repo2, 'umi' );
 
-    $output = `HOME=$home2 perl $repo2/bin/dfm umi 2> /dev/null`;
-    like( $output, qr/adding \.testfile/, 'message in output' );
-    like( $output, qr/\.testfile/,        'message in output' );
+    like( $trap->stdout, qr/adding \.testfile/, 'message in output' );
+    like( $trap->stdout, qr/\.testfile/,        'message in output' );
     ok( -e "$repo2/.testfile", 'updated file is there' );
     ok( -l "$home2/.testfile", 'updated file is installed' );
 };
@@ -198,26 +211,26 @@ subtest 'non origin remote different name' => sub {
     my ( $home2, $repo2, $origin2 ) = minimum_home('host2');
 
     # first, make a personal branch in repo 1, and add a new file
-    `HOME=$home perl $repo/bin/dfm checkout -b personal`;
+    run_dfm( $home, $repo, 'checkout', '-b', 'personal' );
     add_file( $home, $repo, 'testfile' );
-    `HOME=$home perl $repo/bin/dfm push origin personal 2> /dev/null`;
+    run_dfm( $home, $repo, 'push', 'origin', 'personal' );
 
     # on the second host, add the first as a remote
     # and install from the personal branch
-    `HOME=$home2 perl $repo2/bin/dfm remote add upstream $origin`;
-    `HOME=$home2 perl $repo2/bin/dfm fetch upstream`;
-    `HOME=$home2 perl $repo2/bin/dfm checkout -b business upstream/personal`;
-    `HOME=$home2 perl $repo2/bin/dfm install`;
+    run_dfm( $home2, $repo2, 'remote', 'add', 'upstream', $origin );
+    run_dfm( $home2, $repo2, 'fetch', 'upstream' );
+    run_dfm( $home2, $repo2, 'checkout', '-b', 'business',
+        'upstream/personal' );
+    run_dfm( $home2, $repo2, 'install' );
 
     # next, make a change in the first, on the personal branch
     add_file( $home, $repo, 'testfile2', 'contents2' );
-    `HOME=$home perl $repo/bin/dfm push origin personal 2> /dev/null`;
+    run_dfm( $home, $repo, 'push', 'origin', 'personal' );
 
     # and finally, run updates to make sure we can pull
     # from the non-origin upstream
-    my $output = `HOME=$home2 perl $repo2/bin/dfm updates 2> /dev/null`;
-    diag($output);
-    like( $output, qr/adding testfile2/, 'message in output' );
+    run_dfm( $home2, $repo2, 'updates' );
+    like( $trap->stdout, qr/adding testfile2/, 'message in output' );
 };
 
 subtest 'check remote branch' => sub {
@@ -226,21 +239,21 @@ subtest 'check remote branch' => sub {
     my ( $home, $repo, $origin ) = minimum_home('host1');
 
     # first, make a personal branch in repo 1, and add a new file
-    `HOME=$home perl $repo/bin/dfm checkout -b personal`;
-    my $output = `HOME=$home perl $repo/bin/dfm updates 2> /dev/null`;
+    run_dfm( $home, $repo, 'checkout', '-b', 'personal' );
+    run_dfm( $home, $repo, 'updates' );
 
-    ok( $? >> 8 > 0, 'updates throws non-zero exit code' );
+    ok( $trap->exit() != 0, 'updates throws non-zero exit code' );
     like(
-        $output,
+        $trap->stdout,
         qr/no remote found for branch personal/,
         '"no remote" message in output'
     );
 
-    $output = `HOME=$home perl $repo/bin/dfm mergeandinstall 2> /dev/null`;
+    run_dfm( $home, $repo, 'mergeandinstall' );
 
-    ok( $? >> 8 > 0, 'mergeandinstall throws non-zero exit code' );
+    ok( $trap->exit() != 0, 'mergeandinstall throws non-zero exit code' );
     like(
-        $output,
+        $trap->stdout,
         qr/no remote found for branch personal/,
         '"no remote" message in output'
     );

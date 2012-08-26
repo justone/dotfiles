@@ -6,106 +6,109 @@ use English qw( -no_match_vars );    # Avoids regex performance penalty
 use Data::Dumper;
 use FindBin qw($RealBin);
 use Getopt::Long;
+use Getopt::Long qw(GetOptionsFromArray);
 use Cwd qw(realpath getcwd);
 use File::Spec;
 
 our $VERSION = '0.5';
 
-# save path to this dfm program, for use in recursive calls
-my $self_dfm = $0;
-
-my $command;
-foreach my $arg (@ARGV) {
-    next if $arg =~ /^-/;
-    $command = $arg;
-}
-
-if ( !$command ) {
-    $command = 'install';
-}
-
-my $home = realpath( $ENV{HOME} );
-
-my $repo_dir = $RealBin;
-$repo_dir =~ s/$home\///;
-$repo_dir =~ s/\/bin//;
-
-DEBUG("Repo dir: $repo_dir");
-
-my $profile_filename = '.bashrc';
-
-if ( lc($OSNAME) eq 'darwin' ) {
-    $profile_filename = '.profile';
-}
+run_dfm( $RealBin, @ARGV ) unless defined caller;
 
 my %opts;
+my $profile_filename;
+my $repo_dir;
+my $home;
 
-# parse global options first
-Getopt::Long::Configure('pass_through');
-GetOptions( \%opts, 'verbose', 'quiet', 'dry-run', 'help', 'version' );
-Getopt::Long::Configure('no_pass_through');
+sub run_dfm {
+    my ( $realbin, @argv ) = @_;
 
-if ( $opts{'help'} ) {
-    show_usage();
-    exit;
-}
+    # set options to nothing so that running multiple times in tests
+    # does not reuse options
+    %opts = ();
 
-if ( $opts{'version'} ) {
-    show_version();
-    exit;
-}
+    my $command;
 
-if ( $command eq 'install' ) {
-    INFO(
-        "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
+    foreach my $arg (@argv) {
+        next if $arg =~ /^-/;
+        $command = $arg;
+    }
 
-    DEBUG("Running in [$RealBin] and installing in [$home]");
+    if ( !$command ) {
+        $command = 'install';
+    }
 
-    # install files
-    install_files( $home . '/' . $repo_dir, $home );
+    $home = realpath( $ENV{HOME} );
 
-    # link in the bash loader
-    if ( -e "$home/$repo_dir/.bashrc.load" ) {
-        configure_bash_loader();
+    $repo_dir = $realbin;
+    $repo_dir =~ s/$home\///;
+    $repo_dir =~ s/\/bin//;
+
+    DEBUG("Repo dir: $repo_dir");
+
+    $profile_filename = '.bashrc';
+
+    if ( lc($OSNAME) eq 'darwin' ) {
+        $profile_filename = '.profile';
+    }
+
+    # parse global options first
+    Getopt::Long::Configure('pass_through');
+    GetOptionsFromArray( \@argv, \%opts, 'verbose', 'quiet', 'dry-run',
+        'help', 'version' );
+    Getopt::Long::Configure('no_pass_through');
+
+    if ( $opts{'help'} ) {
+        show_usage();
+        exit;
+    }
+
+    if ( $opts{'version'} ) {
+        show_version();
+        exit;
+    }
+
+    if ( $command eq 'install' ) {
+
+        DEBUG("Running in [$RealBin] and installing in [$home]");
+
+        # install files
+        install( $home, $repo_dir );
+    }
+    elsif ( $command eq 'updates' ) {
+        GetOptionsFromArray( \@argv, \%opts, 'no-fetch' );
+
+        fetch_updates( \%opts );
+    }
+    elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
+        GetOptionsFromArray( \@argv, \%opts, 'merge', 'rebase' );
+
+        merge_and_install( \%opts );
+    }
+    elsif ( $command eq 'umi' || $command eq 'updatemergeandinstall' ) {
+        GetOptionsFromArray( \@argv, \%opts, 'merge', 'no-fetch' );
+
+        fetch_updates( \%opts );
+        merge_and_install( \%opts );
+    }
+    elsif ( $command eq 'un' || $command eq 'uninstall' ) {
+        INFO( "Uninstalling dotfiles..."
+                . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
+
+        DEBUG("Running in [$RealBin] and installing in [$home]");
+
+        # uninstall files
+        uninstall_files( $home . '/' . $repo_dir, $home );
+
+        # remove the bash loader
+        unconfigure_bash_loader();
+    }
+    else {
+
+        # assume it's a git command and call accordingly
+        chdir( $home . '/' . $repo_dir );
+        system( 'git', @argv );
     }
 }
-elsif ( $command eq 'updates' ) {
-    GetOptions( \%opts, 'no-fetch' );
-
-    fetch_updates( \%opts );
-}
-elsif ( $command eq 'mi' || $command eq 'mergeandinstall' ) {
-    GetOptions( \%opts, 'merge', 'rebase' );
-
-    merge_and_install( \%opts );
-}
-elsif ( $command eq 'umi' || $command eq 'updatemergeandinstall' ) {
-    GetOptions( \%opts, 'merge', 'no-fetch' );
-
-    fetch_updates( \%opts );
-    merge_and_install( \%opts );
-}
-elsif ( $command eq 'un' || $command eq 'uninstall' ) {
-    INFO( "Uninstalling dotfiles..."
-            . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
-
-    DEBUG("Running in [$RealBin] and installing in [$home]");
-
-    # uninstall files
-    uninstall_files( $home . '/' . $repo_dir, $home );
-
-    # remove the bash loader
-    unconfigure_bash_loader();
-}
-else {
-
-    # assume it's a git command and call accordingly
-    chdir( $home . '/' . $repo_dir );
-    exec( 'git', @ARGV );
-    exit;
-}
-
-exit;
 
 sub get_changes {
     my $what = shift;
@@ -203,10 +206,26 @@ sub merge_and_install {
             if !$opts->{'dry-run'};
 
         INFO("re-installing dotfiles");
-        system("HOME='$home' '$self_dfm' install") if !$opts->{'dry-run'};
+        install( $home, $repo_dir ) if !$opts->{'dry-run'};
     }
     else {
         INFO("no changes to merge");
+    }
+}
+
+sub install {
+    my ( $home, $repo_dir ) = @_;
+
+    INFO(
+        "Installing dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
+
+    DEBUG("Running in [$RealBin] and installing in [$home]");
+
+    install_files( $home . '/' . $repo_dir, $home );
+
+    # link in the bash loader
+    if ( -e "$home/$repo_dir/.bashrc.load" ) {
+        configure_bash_loader();
     }
 }
 
@@ -550,6 +569,8 @@ END
 sub show_version {
     print "dfm version $VERSION\n";
 }
+
+1;
 
 __END__
 

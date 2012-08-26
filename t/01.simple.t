@@ -6,6 +6,8 @@ use FindBin qw($Bin);
 use English qw( -no_match_vars );
 use Fcntl ':mode';
 
+use Test::Trap qw/ :output(systemsafe) /;
+
 require "$Bin/helper.pl";
 
 my $file_slurp_available = load_mod('File::Slurp qw(read_file)');
@@ -22,7 +24,7 @@ subtest 'simplest' => sub {
     ( $home, $repo ) = minimum_home( 'simple2', { origin => $origin } );
     `touch $repo/.bashrc.load`;    # make sure there's a loader
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
     ok( -d "$home/.backup",      'main backup dir exists' );
     ok( -l "$home/bin",          'bin is a symlink' );
@@ -50,7 +52,7 @@ subtest 'dangling symlinks' => sub {
     symlink( ".dotfiles/.other",         "$home/.other" );
     symlink( "../.dotfiles/.ssh/.other", "$home/.ssh/.other" );
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
     ok( !-l "$home/.other",      'dangling symlink is gone' );
     ok( !-l "$home/.ssh/.other", 'dangling symlink is gone' );
@@ -61,7 +63,8 @@ subtest 'with . ssh recurse( no . ssh dir )' => sub {
 
     my ( $home, $repo ) = minimum_home_with_ssh( 'ssh_no', 1 );
     `touch $repo/.bashrc.load`;    # make sure there's a loader
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+
+    run_dfm( $home, $repo, '--verbose' );
 
     check_ssh_recurse($home);
 };
@@ -71,7 +74,8 @@ subtest 'with .ssh recurse (with .ssh dir)' => sub {
 
     my ( $home, $repo ) = minimum_home_with_ssh('ssh_with');
     `touch $repo/.bashrc.load`;    # make sure there's a loader
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+
+    run_dfm( $home, $repo, '--verbose' );
 
     check_ssh_recurse($home);
 };
@@ -86,7 +90,7 @@ subtest 'with bin recurse' => sub {
     `mkdir -p $home/bin`;
     `echo "another bin" > $home/bin/another`;
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
     ok( -d "$home/.backup", 'main backup dir exists' );
     ok( -d "$home/bin",     'bin is a directory' );
@@ -104,15 +108,16 @@ subtest 'check deprecated recursion' => sub {
         = minimum_home( 'deprecated_recurse',
         { dfminstall_contents => 'bin' } );
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
+
     like(
-        $output,
+        $trap->stdout,
         qr(using implied recursion in .dfminstall is deprecated),
         'warning present'
     );
-    like( $output, qr($repo/.dfminstall), '.dfminstall path present' );
+    like( $trap->stdout, qr($repo/.dfminstall), '.dfminstall path present' );
     like(
-        $output,
+        $trap->stdout,
         qr('bin recurse'),
         'proper .dfminstall contents mentioned'
     );
@@ -121,9 +126,10 @@ subtest 'check deprecated recursion' => sub {
         = minimum_home( 'deprecated_recurse',
         { dfminstall_contents => 'bin recurse' } );
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
+
     unlike(
-        $output,
+        $trap->stdout,
         qr(using implied recursion in .dfminstall is deprecated),
         'warning present when keyword used'
     );
@@ -136,16 +142,14 @@ subtest 'switch to recursion' => sub {
     my ( $home, $repo, $origin );
     ( $home, $repo, $origin ) = minimum_home('switch_recurse');
 
-    my $output;
-
-    $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
     ok( -d "$home/.backup", 'main backup dir exists' );
     ok( -l "$home/bin",     'bin is a symlink' );
 
     `echo "bin recurse" >> $repo/.dfminstall`;
 
-    $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
     ok( -d "$home/.backup", 'main backup dir exists' );
     ok( -d "$home/bin",     'bin is a directory' );
@@ -165,7 +169,7 @@ subtest 'parallel recursions work' => sub {
     `mkdir -p $repo/test2`;
     `touch $repo/test2/file2`;
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
     ok( -d "$home/test1",       'first directory present' );
     ok( -l "$home/test1/file1", 'first file is symlink' );
@@ -193,14 +197,16 @@ subtest 'exec option' => sub {
     `echo "#!/bin/sh\n\necho 'message2';\ntouch testfile2" > '$repo/test2/script2.sh'`;
     `chmod +x '$repo/test2/script2.sh'`;
 
-    my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
-    like( $output, qr/message1/, 'output contains output from script1' );
+    like( $trap->stdout, qr/message1/,
+        'output contains output from script1' );
     ok( -e "$home/testfile",    'file created by script1 exists' );
     ok( !-e "$home/script1.sh", 'script1 is not symlinked into home' );
     ok( -x "$repo/script1.sh",  'script1 file is executable' );
 
-    like( $output, qr/message2/, 'output contains output from script2' );
+    like( $trap->stdout, qr/message2/,
+        'output contains output from script2' );
     ok( -e "$home/test2/testfile2",  'file created by script2 exists' );
     ok( -x "$repo/test2/script2.sh", 'script2 file is executable' );
 };
@@ -211,13 +217,18 @@ subtest 'switch to skip' => sub {
     my ( $home, $repo, $origin );
     ( $home, $repo, $origin ) = minimum_home('switch_to_skip');
 
-    my $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
+
     ok( -l "$home/bin", 'bin is symlinked' );
 
     # now add skip
     `echo "bin skip" >> $repo/.dfminstall`;
 
-    $output = `HOME=$home perl $repo/bin/dfm --verbose`;
+    trap {
+        $ENV{HOME} = $home;
+        DFM::run_dfm( "$repo/bin", '--verbose' );
+    };
+
     ok( !-e "$home/bin", 'bin directory is not symlinked' );
 };
 
@@ -230,7 +241,7 @@ subtest 'spaces in username' => sub {
     `mkdir '$home/bin'`;
     `touch '$home/bin/old'`;
 
-    my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
     ok( -l "$home/bin",             'bin is symlinked' );
     ok( -e "$home/.backup/bin/old", 'old files are in backup' );
@@ -251,7 +262,7 @@ subtest 'chmod option' => sub {
     is( ( sprintf "%04o", S_IMODE( ( stat("$repo/.ssh/config") )[2] ) ),
         '0644', 'permissions before are correct' );
 
-    my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+    run_dfm( $home, $repo, '--verbose' );
 
     is( ( sprintf "%04o", S_IMODE( ( stat("$repo/.ssh/config") )[2] ) ),
         '0600', 'permissions after are correct' );
@@ -261,10 +272,10 @@ subtest 'chmod option' => sub {
 
         `echo "config chmod" > $repo/.ssh/.dfminstall`;
 
-        my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+        run_dfm( $home, $repo, '--verbose' );
 
         like(
-            $output,
+            $trap->stdout,
             qr/chmod option requires a mode/,
             'error message in output'
         );
@@ -277,9 +288,10 @@ subtest 'chmod option' => sub {
 
         `echo "config chmod himom" > $repo/.ssh/.dfminstall`;
 
-        my $output = `HOME='$home' perl '$repo/bin/dfm' --verbose`;
+        run_dfm( $home, $repo, '--verbose' );
 
-        like( $output, qr/bad mode 'himom'/, 'error message in output' );
+        like( $trap->stdout, qr/bad mode 'himom'/,
+            'error message in output' );
         is( ( sprintf "%04o", S_IMODE( ( stat("$repo/.ssh/config") )[2] ) ),
             '0644', 'permissions are untouched' );
     };

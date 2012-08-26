@@ -4,6 +4,8 @@ use Test::More;
 use strict;
 use FindBin qw($Bin);
 
+use Test::Trap qw/ :output(systemsafe) /;
+
 require "$Bin/helper.pl";
 
 my $version = '0.5';
@@ -16,13 +18,17 @@ subtest 'help works on all subcommands' => sub {
     my ( $home, $repo ) = minimum_home('help');
 
     foreach my $command (qw(install mergeandinstall updates)) {
-        my $output = `HOME=$home perl $repo/bin/dfm $command --help`;
+        run_dfm( $home, $repo, $command, '--help' );
         like(
-            $output,
+            $trap->stdout,
             qr/Usage.*For full documentation/msi,
             "help ok for subcommand $command"
         );
-        like( $output, qr/dfm version $version/msi, "version number ok" );
+        like(
+            $trap->stdout,
+            qr/dfm version $version/msi,
+            "version number ok"
+        );
     }
 };
 
@@ -31,8 +37,8 @@ subtest 'version commandline flag' => sub {
 
     my ( $home, $repo ) = minimum_home('version');
 
-    my $output = `HOME=$home perl $repo/bin/dfm --version`;
-    like( $output, qr/dfm version $version/msi, "version output ok" );
+    run_dfm( $home, $repo, '--version' );
+    like( $trap->stdout, qr/dfm version $version/msi, "version output ok" );
 };
 
 done_testing;
