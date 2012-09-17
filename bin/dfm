@@ -6,7 +6,6 @@ use English qw( -no_match_vars );    # Avoids regex performance penalty
 use Data::Dumper;
 use FindBin qw($RealBin);
 use Getopt::Long;
-use Getopt::Long qw(GetOptionsFromArray);
 use Cwd qw(realpath getcwd);
 use File::Spec;
 
@@ -37,11 +36,46 @@ sub run_dfm {
         $command = 'install';
     }
 
+    # parse global options first
+    Getopt::Long::Configure('pass_through');
+    GetOptionsFromArray( \@argv, \%opts, 'verbose', 'quiet', 'dry-run',
+        'help', 'version' );
+    Getopt::Long::Configure('no_pass_through');
+
     $home = realpath( $ENV{HOME} );
 
-    $repo_dir = $realbin;
-    $repo_dir =~ s/$home\///;
-    $repo_dir =~ s/\/bin//;
+    if ( $ENV{'DFM_REPO'} ) {
+        $repo_dir = $ENV{'DFM_REPO'};
+        $repo_dir =~ s/$home\///;
+    }
+    elsif ( -e "$realbin/t/02.updates_mergeandinstall.t" ) {
+
+        # dfm is being invoked from its own repo, not a dotfiles repo; try and
+        # figure out what repo in the users's homedir is the dotfiles repo
+        #
+        # TODO: alternate strategy: see if there are files in $home that are
+        # already symlinked and use those as a guide
+        foreach my $potential_dotfiles_repo (qw(.dotfiles dotfiles)) {
+            if (   -d "$home/$potential_dotfiles_repo"
+                && -d "$home/$potential_dotfiles_repo/.git" )
+            {
+                $repo_dir = "$home/$potential_dotfiles_repo";
+                $repo_dir =~ s/$home\///;
+            }
+        }
+
+        if ( !$repo_dir ) {
+            ERROR(
+                "unable to discover dotfiles repo and dfm is running from its own repo"
+            );
+            exit -2;
+        }
+    }
+    else {
+        $repo_dir = $realbin;
+        $repo_dir =~ s/$home\///;
+        $repo_dir =~ s/\/bin//;
+    }
 
     DEBUG("Repo dir: $repo_dir");
 
@@ -50,12 +84,6 @@ sub run_dfm {
     if ( lc($OSNAME) eq 'darwin' ) {
         $profile_filename = '.profile';
     }
-
-    # parse global options first
-    Getopt::Long::Configure('pass_through');
-    GetOptionsFromArray( \@argv, \%opts, 'verbose', 'quiet', 'dry-run',
-        'help', 'version' );
-    Getopt::Long::Configure('no_pass_through');
 
     if ( $opts{'help'} ) {
         show_usage();
@@ -568,6 +596,15 @@ END
 
 sub show_version {
     print "dfm version $VERSION\n";
+}
+
+# work-alike for function from perl 5.8.9 and later
+# added for compatibility with CentOS 5, which is stuck on 5.8.8
+sub GetOptionsFromArray {
+    my ( $argv, $opts, @options ) = @_;
+
+    local @ARGV = @$argv;
+    GetOptions( $opts, @options );
 }
 
 1;
