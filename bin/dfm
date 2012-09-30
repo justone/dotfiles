@@ -8,8 +8,9 @@ use FindBin qw($RealBin);
 use Getopt::Long;
 use Cwd qw(realpath getcwd);
 use File::Spec;
+use File::Copy;
 
-our $VERSION = '0.5';
+our $VERSION = '0.6';
 
 run_dfm( $RealBin, @ARGV ) unless defined caller;
 
@@ -30,6 +31,7 @@ sub run_dfm {
     foreach my $arg (@argv) {
         next if $arg =~ /^-/;
         $command = $arg;
+        last;    # once we find the command, stop looking
     }
 
     if ( !$command ) {
@@ -68,7 +70,7 @@ sub run_dfm {
             ERROR(
                 "unable to discover dotfiles repo and dfm is running from its own repo"
             );
-            exit -2;
+            exit(-2);
         }
     }
     else {
@@ -130,11 +132,19 @@ sub run_dfm {
         # remove the bash loader
         unconfigure_bash_loader();
     }
+    elsif ( $command eq 'im' || $command eq 'import' ) {
+        GetOptionsFromArray( \@argv, \%opts, 'message=s', 'no-commit|n' );
+
+        #DEBUG("Running in [$RealBin] and installing in [$home]");
+        shift @argv;    # toss the 'import' at the beginning of the array
+
+        # import files
+        import_files( $home . '/' . $repo_dir, $home, \@argv );
+    }
     else {
 
         # assume it's a git command and call accordingly
-        chdir( $home . '/' . $repo_dir );
-        system( 'git', @argv );
+        _run_git(@argv);
     }
 }
 
@@ -258,25 +268,22 @@ sub install {
 }
 
 # function to install files
+# possible options:
+#   install_only: list of files to install, as opposed to all of them
 sub install_files {
-    my ( $source_dir, $target_dir, $initial_skips ) = @_;
-    $initial_skips ||= [];
+    my ( $source_dir, $target_dir, $options ) = @_;
+
+    my $install_only;
+
+    if ( $options->{install_only}
+        && scalar @{ $options->{install_only} } > 0 )
+    {
+        $install_only = $options->{install_only};
+    }
 
     DEBUG("Installing from $source_dir into $target_dir");
 
-    my $symlink_base;
-
-    # if the paths have no first element in common
-    if ( ( File::Spec->splitdir($source_dir) )[1] ne
-        ( File::Spec->splitdir($target_dir) )[1] )
-    {
-        $symlink_base = $source_dir;    # use absolute path
-    }
-    else {
-
-        # otherwise, calculate the relative path between the two directories
-        $symlink_base = File::Spec->abs2rel( $source_dir, $target_dir );
-    }
+    my $symlink_base = _calculate_symlink_base( $source_dir, $target_dir );
 
     my $backup_dir = $target_dir . '/.backup';
     DEBUG("Backup dir: $backup_dir");
@@ -284,58 +291,7 @@ sub install_files {
     my $cwd_before_install = getcwd();
     chdir($target_dir);
 
-    # build up skip list
-    my $skip_files    = { map { $_ => 1 } @$initial_skips };
-    my $recurse_files = [];
-    my $execute_files = [];
-    my $chmod_files   = {};
-
-    if ( -e "$source_dir/.dfminstall" ) {
-        open( my $skip_fh, '<', "$source_dir/.dfminstall" );
-        foreach my $line (<$skip_fh>) {
-            chomp($line);
-            if ( length($line) ) {
-                my ( $filename, @options ) = split( q{ }, $line );
-                DEBUG(".dfminstall file $filename has @options");
-                if ( !defined $options[0] ) {
-                    WARN(
-                        "using implied recursion in .dfminstall is deprecated, change '$filename' to '$filename recurse' in $source_dir/.dfminstall."
-                    );
-                    push( @$recurse_files, $filename );
-                    $skip_files->{$filename} = 1;
-                }
-                elsif ( $options[0] eq 'skip' ) {
-                    $skip_files->{$filename} = 1;
-                }
-                elsif ( $options[0] eq 'recurse' ) {
-                    push( @$recurse_files, $filename );
-                    $skip_files->{$filename} = 1;
-                }
-                elsif ( $options[0] eq 'exec' ) {
-                    push( @$execute_files, $filename );
-                }
-                elsif ( $options[0] eq 'chmod' ) {
-                    if ( !$options[1] ) {
-                        ERROR(
-                            "chmod option requires a mode (e.g. 0600) in $source_dir/.dfminstall"
-                        );
-                        exit 1;
-                    }
-                    if ( $options[1] !~ /^[0-7]{4}$/ ) {
-                        ERROR(
-                            "bad mode '$options[1]' (should be 4 digit octal, like 0600) in $source_dir/.dfminstall"
-                        );
-                        exit 1;
-                    }
-                    $chmod_files->{$filename} = $options[1];
-                }
-            }
-        }
-        close($skip_fh);
-        $skip_files->{skip} = 1;
-
-        DEBUG("Skipped file: $_") for keys %$skip_files;
-    }
+    my $dfm_install = _load_dfminstall("$source_dir/.dfminstall");
 
     if ( !-e $backup_dir ) {
         DEBUG("Creating $backup_dir");
@@ -346,23 +302,15 @@ sub install_files {
     opendir $dirh, $source_dir;
     foreach my $direntry ( readdir($dirh) ) {
 
-        # skip current and parent
-        next if $direntry eq '.' or $direntry eq '..';
+        if ($install_only) {
+            next unless grep { $_ eq $direntry } @$install_only;
+        }
 
         # skip vim swap files
         next if $direntry =~ /.*\.sw.$/;
 
-        # always skip .dfminstall files
-        next if $direntry eq '.dfminstall';
-
-        # always skip .gitignore files
-        next if $direntry eq '.gitignore';
-
-        # always skip the .git repo
-        next if $direntry eq '.git';
-
         # skip any other files
-        next if $skip_files->{$direntry};
+        next if $dfm_install->{skip_files}->{$direntry};
 
         DEBUG(" Working on $direntry");
 
@@ -378,9 +326,10 @@ sub install_files {
         }
     }
 
-    cleanup_dangling_symlinks( $source_dir, $target_dir, $skip_files );
+    cleanup_dangling_symlinks( $source_dir, $target_dir,
+        $dfm_install->{skip_files} );
 
-    foreach my $recurse (@$recurse_files) {
+    foreach my $recurse ( @{ $dfm_install->{recurse_files} } ) {
         if ( -d "$source_dir/$recurse" ) {
             DEBUG("recursing into $source_dir/$recurse");
             if ( -l "$target_dir/$recurse" ) {
@@ -391,7 +340,18 @@ sub install_files {
                 DEBUG("making directory $target_dir/$recurse");
                 mkdir("$target_dir/$recurse");
             }
-            install_files( "$source_dir/$recurse", "$target_dir/$recurse" );
+
+            my $recurse_options;
+            if ($install_only) {
+                $recurse_options = {
+                    install_only => [
+                        map { s/^$recurse\///; $_ }
+                            grep {/^$recurse/} @$install_only
+                    ]
+                };
+            }
+            install_files( "$source_dir/$recurse", "$target_dir/$recurse",
+                $recurse_options );
         }
         else {
             WARN(
@@ -400,7 +360,7 @@ sub install_files {
         }
     }
 
-    foreach my $execute (@$execute_files) {
+    foreach my $execute ( @{ $dfm_install->{execute_files} } ) {
         my $cwd = getcwd();
 
         if ( -x "$source_dir/$execute" ) {
@@ -415,8 +375,8 @@ sub install_files {
         }
     }
 
-    foreach my $chmod_file ( keys %$chmod_files ) {
-        my $new_perms = $chmod_files->{$chmod_file};
+    foreach my $chmod_file ( keys %{ $dfm_install->{chmod_files} } ) {
+        my $new_perms = $dfm_install->{chmod_files}->{$chmod_file};
 
         # TODO maybe skip if perms are already ok
         DEBUG("Setting permissions on $chmod_file to $new_perms");
@@ -451,21 +411,7 @@ sub uninstall_files {
 
     chdir($target_dir);
 
-    # build up recurse list
-    my $recurse_files = [];
-    if ( -e "$source_dir/.dfminstall" ) {
-        open( my $dfminstall_fh, '<', "$source_dir/.dfminstall" );
-        foreach my $line (<$dfminstall_fh>) {
-            chomp($line);
-            if ( length($line) ) {
-                my ( $filename, $option ) = split( q{ }, $line );
-                if ( !defined $option || $option ne 'skip' ) {
-                    push( @$recurse_files, $filename );
-                }
-            }
-        }
-        close($dfminstall_fh);
-    }
+    my $dfm_install = _load_dfminstall("$source_dir/.dfminstall");
 
     my $dirh;
     opendir $dirh, $target_dir;
@@ -496,7 +442,7 @@ sub uninstall_files {
         }
     }
 
-    foreach my $recurse (@$recurse_files) {
+    foreach my $recurse ( @{ $dfm_install->{recurse_files} } ) {
         if ( -d "$target_dir/$recurse" ) {
             DEBUG("recursing into $target_dir/$recurse");
             uninstall_files( "$source_dir/$recurse", "$target_dir/$recurse" );
@@ -505,6 +451,129 @@ sub uninstall_files {
             WARN(
                 "couldn't recurse into $target_dir/$recurse, not a directory"
             );
+        }
+    }
+}
+
+sub relative_to_target {
+    my ( $tryfile, $target_dir ) = @_;
+
+    if ( -l $tryfile ) {
+        my ( $volume, $dirs, $lfile ) = File::Spec->splitpath($tryfile);
+        return File::Spec->abs2rel(
+            File::Spec->catfile( realpath($dirs), $lfile ), $target_dir );
+    }
+    else {
+        return File::Spec->abs2rel( realpath($tryfile), $target_dir );
+    }
+}
+
+sub import_files {
+    my ( $source_dir, $target_dir, $files ) = @_;
+
+    my $symlink_base = _calculate_symlink_base( $source_dir, $target_dir );
+
+    foreach my $file (@$files) {
+
+        if ( $file =~ m{^/} ) {
+            $file = relative_to_target( $file, $target_dir );
+        }
+        else {
+            my $tryfile = File::Spec->rel2abs($file);
+
+            if ( -e $tryfile ) {
+
+                #print "FOUND in cwd\n";
+                $file = relative_to_target( $tryfile, $target_dir );
+            }
+            else {
+                my $tryfile = File::Spec->rel2abs( $file, $target_dir );
+
+                if ( -e $tryfile ) {
+
+                    #print "FOUND in home\n";
+                    $file = relative_to_target( $tryfile, $target_dir );
+                }
+            }
+        }
+
+        if ( $file =~ /^\.\./ ) {
+            ERROR("file $file is not in your home directory");
+            return;
+        }
+
+        # if dfm import $HOME is called
+        if ( $file eq '.' ) {
+            ERROR("unable to import your home directory itself");
+            return;
+        }
+
+        if ( !-e "$target_dir/$file" ) {
+            ERROR("file $file not found, unable to import");
+            return;
+        }
+
+        DEBUG("file path, relative to homedir: $file");
+
+        my ( $in_a_subdir, $subdir )
+            = _file_in_tracked_or_untracked( $source_dir, $source_dir,
+            $file );
+        if ( $in_a_subdir eq 'untracked' ) {
+            ERROR(
+                "file $file is in a subdirectory that is not tracked, consider using 'dfm import $subdir'."
+            );
+            return;
+        }
+        elsif ( $in_a_subdir eq 'tracked' ) {
+            ERROR(
+                "file $file is in a subdirectory that is already tracked, consider using 'dfm add $subdir'."
+            );
+            return;
+        }
+        elsif ( $in_a_subdir eq 'skip' ) {
+            ERROR("file $file is skipped.");
+            return;
+        }
+
+        # detect file that's already tracked, either by being a symlink that
+        # points into the repo or in the repo itself
+        if ((   -l "$target_dir/$file"
+                && (readlink("$target_dir/$file")
+                    =~ /(\.\.\/)*$symlink_base/ )
+            )
+            || $file =~ /^$symlink_base/
+            )
+        {
+            ERROR("file $file is already tracked.");
+            return;
+        }
+
+    }
+
+    my $message = $opts{message} || "importing " . join( ', ', @$files );
+
+    foreach my $file (@$files) {
+        INFO( "Importing $file from $target_dir into $source_dir"
+                . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
+
+        DEBUG("moving $file into $source_dir");
+        if ( !$opts{'dry-run'} ) {
+            move( "$target_dir/$file", "$source_dir/$file" );
+        }
+
+        if ( !$opts{'dry-run'} ) {
+            _run_git( 'add', $file );
+        }
+    }
+
+    install_files( $home . '/' . $repo_dir,
+        $home, { install_only => [@$files] } );
+
+    INFO( "Committing with message '$message'"
+            . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
+    if ( !$opts{'dry-run'} ) {
+        if ( !$opts{'no-commit'} ) {
+            _run_git( 'commit', @$files, '-m', $message );
         }
     }
 }
@@ -578,6 +647,155 @@ sub _read_bashrc_contents {
     return $bashrc_contents;
 }
 
+sub _run_git {
+    my @args = @_;
+
+    my $cwd_before_git = getcwd();
+
+    DEBUG( 'running git ' . join( ' ', @args ) . " in $home/$repo_dir" );
+    chdir( $home . '/' . $repo_dir );
+    system( 'git', @args );
+
+    chdir($cwd_before_git);
+}
+
+# when symlinking from source_dir into target_dir, figure out if there's a
+# relative path between the two
+sub _calculate_symlink_base {
+    my ( $source_dir, $target_dir ) = @_;
+
+    my $symlink_base;
+
+    # if the paths have no first element in common
+    if ( ( File::Spec->splitdir($source_dir) )[1] ne
+        ( File::Spec->splitdir($target_dir) )[1] )
+    {
+        $symlink_base = $source_dir;    # use absolute path
+    }
+    else {
+
+        # otherwise, calculate the relative path between the two directories
+        $symlink_base = File::Spec->abs2rel( $source_dir, $target_dir );
+    }
+
+    return $symlink_base;
+}
+
+sub _file_in_tracked_or_untracked {
+    my ( $orig_source_dir, $source_dir, $file ) = @_;
+
+    # strip the repo dir off the front, in case the file is already tracked
+    $file =~ s/$repo_dir\///;
+
+    my $cwd_before_inspection = getcwd();
+    chdir($source_dir);
+
+    my $dfm_install = _load_dfminstall("$source_dir/.dfminstall");
+
+    # skip vim swap files
+    return ('skip') if $file =~ /.*\.sw.$/;
+
+    # skip any other files
+    return ('skip') if $dfm_install->{skip_files}->{$file};
+
+    my @dirs = File::Spec->splitdir($file);
+    if ( scalar(@dirs) > 1 ) {
+        my $recurse_dir = shift(@dirs);
+        if ( grep { $recurse_dir eq $_ } @{ $dfm_install->{recurse_files} } )
+        {
+            chdir($cwd_before_inspection);
+            return _file_in_tracked_or_untracked(
+                $orig_source_dir,
+                File::Spec->catfile( $source_dir, $recurse_dir ),
+                File::Spec->catfile(@dirs)
+            );
+        }
+        else {
+            my $relative_path
+                = File::Spec->abs2rel( $source_dir, $orig_source_dir );
+
+            my $dir_type = -e $recurse_dir ? 'tracked' : 'untracked';
+
+            chdir($cwd_before_inspection);
+            return ( $dir_type,
+                ( $relative_path eq '.' )
+                ? $recurse_dir
+                : File::Spec->catfile( $relative_path, $recurse_dir ) );
+        }
+    }
+
+    chdir($cwd_before_inspection);
+    return ('install');
+}
+
+sub _load_dfminstall {
+    my ($dfminstall_path) = @_;
+
+    my $dfminstall_info = {
+        skip_files => {
+            '.'           => 1,
+            '..'          => 1,
+            '.dfminstall' => 1,
+            '.gitignore'  => 1,
+            '.git'        => 1,
+        },
+        recurse_files => [],
+        execute_files => [],
+        chmod_files   => {},
+    };
+
+    if ( -e $dfminstall_path ) {
+        open( my $skip_fh, '<', $dfminstall_path );
+        foreach my $line (<$skip_fh>) {
+            chomp($line);
+            if ( length($line) ) {
+                my ( $filename, @options ) = split( q{ }, $line );
+                DEBUG(".dfminstall file $filename has @options");
+                if ( !defined $options[0] ) {
+                    WARN(
+                        "using implied recursion in .dfminstall is deprecated, change '$filename' to '$filename recurse' in $dfminstall_path."
+                    );
+                    push( @{ $dfminstall_info->{recurse_files} }, $filename );
+                    $dfminstall_info->{skip_files}->{$filename} = 1;
+                }
+                elsif ( $options[0] eq 'skip' ) {
+                    $dfminstall_info->{skip_files}->{$filename} = 1;
+                }
+                elsif ( $options[0] eq 'recurse' ) {
+                    push( @{ $dfminstall_info->{recurse_files} }, $filename );
+                    $dfminstall_info->{skip_files}->{$filename} = 1;
+                }
+                elsif ( $options[0] eq 'exec' ) {
+                    push( @{ $dfminstall_info->{execute_files} }, $filename );
+                }
+                elsif ( $options[0] eq 'chmod' ) {
+                    if ( !$options[1] ) {
+                        ERROR(
+                            "chmod option requires a mode (e.g. 0600) in $dfminstall_path"
+                        );
+                        exit 1;
+                    }
+                    if ( $options[1] !~ /^[0-7]{4}$/ ) {
+                        ERROR(
+                            "bad mode '$options[1]' (should be 4 digit octal, like 0600) in $dfminstall_path"
+                        );
+                        exit 1;
+                    }
+                    $dfminstall_info->{chmod_files}->{$filename}
+                        = $options[1];
+                }
+            }
+        }
+        close($skip_fh);
+        $dfminstall_info->{skip_files}->{skip} = 1;
+
+        DEBUG("Skipped file: $_")
+            for keys %{ $dfminstall_info->{skip_files} };
+    }
+
+    return $dfminstall_info;
+}
+
 sub show_usage {
     show_version();
     print <<END;
@@ -605,6 +823,9 @@ sub GetOptionsFromArray {
 
     local @ARGV = @$argv;
     GetOptions( $opts, @options );
+
+    # update the passed argv array
+    @$argv = @ARGV;
 }
 
 1;
@@ -618,6 +839,8 @@ __END__
 =head1 SYNOPSIS
 
     dfm install [--verbose|--quiet] [--dry-run]
+
+    dfm import [--verbose|--quiet] [--dry-run] [--no-commit] [--message <message>] file1 [file2 ..]
 
     dfm uninstall [--verbose|--quiet] [--dry-run]
      - or -
@@ -672,6 +895,15 @@ install' symlink files inside of ~/.ssh instead of making ~/.ssh a symlink, put
 this in .dfminstall:
 
     .ssh
+
+=item dfm import
+
+This command moves each file specified into the dotfiles repository and
+symlinks it into $HOME.  Then a commit is made.
+
+Use '--message' to specify a different commit message.
+
+Use '--no-commit' to add the files, but not commit.
 
 =item dfm updates [--no-fetch]
 
