@@ -2,7 +2,8 @@
 
 export PATH=$PATH:$HOME/bin
 
-# add this to the .bashrc: . $HOME/.bashrc.load
+# add this to the .bashrc or .zshrc (done automatically by dfm):
+# . $HOME/.shellrc.load
 
 ####
-# put any bash customizations in here
+# put any bash/zsh customizations in here
