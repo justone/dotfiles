@@ -12,7 +12,7 @@ use File::Copy;
 use File::Basename;
 use Pod::Usage;
 
-our $VERSION = 'v0.7.2';
+our $VERSION = 'v0.7.4';
 
 my %opts;
 my $shellrc_filename;
@@ -60,15 +60,8 @@ my $commands = {
     'uninstall' => sub {
         my $argv = shift;
 
-        INFO( "Uninstalling dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
-
-        DEBUG("Running in [$RealBin] and installing in [$home]");
-
         # uninstall files
-        uninstall_files( _abs_repo_path( $home, $repo_dir ), $home );
-
-        # remove the shell loader
-        unconfigure_shell_loader();
+        uninstall($home, $repo_dir);
     },
     'import' => sub {
         my $argv = shift;
@@ -114,6 +107,10 @@ sub run_dfm {
     # set options to nothing so that running multiple times in tests
     # does not reuse options
     %opts = ();
+    $shellrc_filename = undef;
+    $shellrc_load_filename = undef;
+    $repo_dir = undef;
+    $home = undef;
 
     my $command;
 
@@ -141,6 +138,10 @@ sub run_dfm {
     }
 
     $home = realpath( $ENV{HOME} );
+    if ( !$home ) {
+        ERROR("unable to determine 'realpath' for $ENV{HOME}");
+        exit(-2);
+    }
 
     if ( $ENV{'DFM_REPO'} ) {
         $repo_dir = $ENV{'DFM_REPO'};
@@ -208,15 +209,15 @@ sub run_dfm {
 sub my_symlink {
     my $target = shift;
     my $link   = shift;
-        
+
     if ($^O eq "cygwin")
-    {           
+    {
         my $flags = "";
         if (-d $target) { $flags = "/D" };
 
         $target = `cygpath -w $target`;
         $link   = `cygpath -w $link`;
-        
+
         chomp $target;
         chomp $link;
 
@@ -262,19 +263,19 @@ sub check_remote_branch {
 
 # a few log4perl-alikes
 sub ERROR {
-    printf "ERROR: %s\n", shift;
+    print "ERROR: @_\n";
 }
 
 sub WARN {
-    printf "WARN: %s\n", shift;
+    print "WARN: @_\n";
 }
 
 sub INFO {
-    printf "INFO: %s\n", shift if !$opts{quiet};
+    print "INFO: @_\n" if !$opts{quiet};
 }
 
 sub DEBUG {
-    printf "DEBUG: %s\n", shift if $opts{verbose};
+    print "DEBUG: @_\n" if $opts{verbose};
 }
 
 sub fetch_updates {
@@ -352,6 +353,29 @@ sub install {
     }
 }
 
+sub uninstall {
+    my ( $home, $repo_dir ) = @_;
+
+    INFO( "Uninstalling dotfiles..." . ( $opts{'dry-run'} ? ' (dry run)' : '' ) );
+
+    DEBUG("Running in [$RealBin] and installing in [$home]");
+
+    # uninstall files
+    uninstall_files( _abs_repo_path( $home, $repo_dir ), $home );
+
+    # link in the shell loader
+    if ( -e _abs_repo_path( $home, $repo_dir ) . "/.shellrc.load" ) {
+        $shellrc_load_filename = '.shellrc.load';
+    }
+    elsif ( -e _abs_repo_path( $home, $repo_dir ) . "/.bashrc.load" ) {
+        $shellrc_load_filename = '.bashrc.load';
+    }
+
+    if ($shellrc_load_filename) {
+        unconfigure_shell_loader();
+    }
+}
+
 # function to install files
 # possible options:
 #   install_only: list of files to install, as opposed to all of them
@@ -392,7 +416,11 @@ sub install_files {
         }
 
         # skip vim swap files
-        next if $direntry =~ /.*\.sw.$/;
+        next if $direntry =~ /^\..*\.sw.$/;
+
+        # skip emacs temporary and backup files
+        next if $direntry =~ /^\.#.*$/;
+        next if $direntry =~ /^.*~$/;
 
         # skip any other files
         next if $dfm_install->{skip_files}->{$direntry};
@@ -515,8 +543,8 @@ sub uninstall_files {
             my $target_base
                 = realpath( File::Spec->rel2abs( File::Spec->catpath( '', @elements ) ) );
 
-            DEBUG("target_base $target_base $source_dir");
-            if ( $target_base eq $source_dir ) {
+            DEBUG( "target_base '", defined $target_base ? $target_base : '', "' $source_dir" );
+            if ( defined $target_base and $target_base eq $source_dir ) {
                 INFO("  Removing $direntry ($link_target).");
                 unlink($direntry) if !$opts{'dry-run'};
             }
@@ -526,6 +554,21 @@ sub uninstall_files {
                 INFO("  Restoring $direntry from backup.");
                 rename( $backup_path, $element ) if !$opts{'dry-run'};
             }
+        }
+    }
+
+    foreach my $execute ( @{ $dfm_install->{execute_uninstall_files} } ) {
+        my $cwd = getcwd();
+
+        if ( -x "$source_dir/$execute" ) {
+            DEBUG("Executing $source_dir/$execute in $cwd");
+            system("'$source_dir/$execute'");
+        }
+        elsif ( -o "$source_dir/$execute" ) {
+            system("chmod +x '$source_dir/$execute'");
+
+            DEBUG("Executing $source_dir/$execute in $cwd");
+            system("'$source_dir/$execute'");
         }
     }
 
@@ -680,8 +723,8 @@ sub cleanup_dangling_symlinks {
             my $target_base
                 = realpath( File::Spec->rel2abs( File::Spec->catpath( '', @elements ) ) );
 
-            DEBUG("target_base $target_base $source_dir");
-            if ( $target_base eq $source_dir ) {
+            DEBUG( "target_base '", defined $target_base ? $target_base : '', "' $source_dir" );
+            if ( defined $target_base and $target_base eq $source_dir ) {
                 INFO("  Cleaning up dangling symlink $direntry ($link_target).");
                 unlink($direntry) if !$opts{'dry-run'};
             }
@@ -824,9 +867,10 @@ sub _load_dfminstall {
             '.gitignore'  => 1,
             '.git'        => 1,
         },
-        recurse_files => [],
-        execute_files => [],
-        chmod_files   => {},
+        recurse_files           => [],
+        execute_files           => [],
+        execute_uninstall_files => [],
+        chmod_files             => {},
     };
 
     if ( -e $dfminstall_path ) {
@@ -852,6 +896,9 @@ sub _load_dfminstall {
                 }
                 elsif ( $options[0] eq 'exec' ) {
                     push( @{ $dfminstall_info->{execute_files} }, $filename );
+                }
+                elsif ( $options[0] eq 'exec-uninstall' ) {
+                    push( @{ $dfminstall_info->{execute_uninstall_files} }, $filename );
                 }
                 elsif ( $options[0] eq 'chmod' ) {
                     if ( !$options[1] ) {
